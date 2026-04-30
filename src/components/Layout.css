@@ -1,0 +1,310 @@
+/* ── Shared ─────────────────────────────────────────────────────────────── */
+.app-content {
+  flex: 1;
+  min-height: 0;
+  padding: 1.5rem;
+  overflow-y: auto;
+}
+
+/* ── Mobile layout ──────────────────────────────────────────────────────── */
+.app-layout.mobile {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+}
+
+.app-header {
+  background-color: color-mix(in srgb, var(--color-bg-raised) 94%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--color-border);
+  padding: 0.75rem 1rem;
+  padding-top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  position: relative;
+  z-index: 100;
+  flex-shrink: 0;
+}
+
+.app-header-menu-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  border-radius: var(--radius);
+  transition: color 0.15s, background 0.15s;
+}
+
+.app-header-menu-btn:hover {
+  color: var(--color-text);
+  background: var(--color-surface);
+}
+
+/* ── Desktop layout ─────────────────────────────────────────────────────── */
+.app-layout.desktop {
+  display: flex;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.app-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  position: relative;
+}
+
+.app-topbar {
+  height: 52px;
+  border-bottom: 1px solid var(--color-border);
+  background-color: var(--color-bg-raised);
+  display: flex;
+  align-items: center;
+  padding: 0 1.5rem;
+  gap: 1rem;
+  flex-shrink: 0;
+}
+
+.topbar-left {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.app-layout.desktop .app-content {
+  padding: 2.25rem 2.75rem;
+}
+
+/* Topbar icon buttons */
+.topbar-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+
+.topbar-icon-btn:hover {
+  color: var(--color-text);
+  background: var(--color-surface);
+}
+
+.topbar-divider {
+  width: 1px;
+  height: 22px;
+  background: var(--color-border);
+  margin: 0 0.25rem;
+  flex-shrink: 0;
+}
+
+/* Topbar user chip */
+.topbar-user-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  transition: background 0.15s;
+}
+
+.topbar-user-chip:hover {
+  background: var(--color-surface);
+}
+
+.topbar-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  object-fit: cover;
+}
+
+.topbar-avatar--initials {
+  background: var(--color-primary-dim);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.topbar-user-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+  min-width: 0;
+}
+
+.topbar-user-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text);
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.topbar-user-chevron {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+  transition: transform 0.18s;
+}
+
+.topbar-user-chip.open .topbar-user-chevron {
+  transform: rotate(180deg);
+}
+
+/* Dropdown */
+.topbar-user-wrap {
+  position: relative;
+}
+
+.topbar-user-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 200px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  z-index: 300;
+}
+
+.topbar-user-dropdown-header {
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.topbar-user-dropdown-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.topbar-user-dropdown-email {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topbar-user-dropdown-divider {
+  height: 1px;
+  background: var(--color-border);
+}
+
+.topbar-user-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.65rem 1rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.845rem;
+  font-family: var(--font-body);
+  color: var(--color-text-secondary);
+  text-align: left;
+  transition: background 0.12s, color 0.12s;
+}
+
+.topbar-user-dropdown-item:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.topbar-user-dropdown-item--danger {
+  color: var(--color-danger);
+}
+
+.topbar-user-dropdown-item--danger:hover {
+  background: rgba(212, 88, 88, 0.08);
+  color: var(--color-danger);
+}
+
+/* ── Status banners ──────────────────────────────────────────────────────── */
+.app-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 1.5rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.app-banner--offline {
+  background: #3b2a00;
+  color: #fbbf24;
+  border-bottom: 1px solid #7c5500;
+}
+
+.app-banner--update {
+  background: color-mix(in srgb, var(--color-accent) 12%, var(--color-bg-raised));
+  color: var(--color-accent);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
+}
+
+.app-banner-action {
+  background: none;
+  border: 1px solid currentColor;
+  color: inherit;
+  border-radius: var(--radius);
+  padding: 0.2rem 0.65rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.app-banner-action:hover {
+  background: color-mix(in srgb, currentColor 15%, transparent);
+}
+
+/* ── Modal root ─────────────────────────────────────────────────────────── */
+#modal-root {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 100;
+}

@@ -1,0 +1,127 @@
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  width: 248px;
+  height: 100vh;
+  height: 100dvh;
+  position: sticky;
+  top: 0;
+  background-color: var(--color-bg-raised);
+  border-right: 1px solid var(--color-border);
+  flex-shrink: 0;
+  overflow-y: auto;
+}
+
+.sidebar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 180px;
+  background: radial-gradient(ellipse at 50% -20%, var(--color-primary-glow) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.sidebar-brand {
+  padding: 1.75rem 1.5rem 1.5rem;
+  border-bottom: 1px solid var(--color-border);
+  position: relative;
+}
+
+.sidebar-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.9rem;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  color: var(--color-text);
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+.sidebar-subtitle {
+  margin: 0.5rem 0 0;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.sidebar-nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 1rem 0;
+  gap: 1px;
+  overflow: hidden;
+}
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.7rem 1.5rem;
+  text-decoration: none;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+  border-left: 2px solid transparent;
+  letter-spacing: 0.01em;
+}
+
+.sidebar-link:hover {
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  border-left-color: var(--color-border-light);
+}
+
+.sidebar-link.active {
+  background-color: var(--color-primary-subtle);
+  color: var(--color-primary-light);
+  border-left-color: var(--color-primary);
+}
+
+.sidebar-icon {
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
+  color: currentColor;
+  opacity: 0.85;
+}
+
+.sidebar-link.active .sidebar-icon {
+  opacity: 1;
+}
+
+.sidebar-label {
+  white-space: nowrap;
+}
+
+.sidebar-version-row {
+  padding: 0.75rem 1.5rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.sidebar-version {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--color-text-muted);
+  letter-spacing: 0.04em;
+}
+
+.sidebar-link--dev {
+  color: #D4983A !important;
+  opacity: 0.7;
+}
+
+.sidebar-link--dev:hover,
+.sidebar-link--dev.active {
+  opacity: 1;
+  color: #E8AE4E !important;
+  background: rgba(212, 152, 58, 0.08) !important;
+  border-left-color: #D4983A !important;
+}
