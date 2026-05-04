@@ -20,7 +20,8 @@ import {
   sendPasswordResetEmail,
   type User,
 } from 'firebase/auth';
-import { auth } from '../lib/firebase';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { auth, db } from '../lib/firebase';
 
 interface AuthContextValue {
   user: User | null;
@@ -101,6 +102,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     }
   }, []);
+
+  // Persist user profile to Firestore on every sign-in so connections (Spotify etc.) can be looked up by uid
+  useEffect(() => {
+    if (!user || !db) return;
+    setDoc(
+      doc(db, 'users', user.uid, 'data', 'profile'),
+      {
+        displayName: user.displayName ?? '',
+        email: user.email ?? '',
+        photoURL: user.photoURL ?? '',
+        lastLoginAt: serverTimestamp(),
+      },
+      { merge: true },
+    ).catch(() => {});
+  }, [user?.uid]);
 
   const signIn = useCallback(async (email: string, password: string) => {
     if (auth) {

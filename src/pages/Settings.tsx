@@ -1,71 +1,204 @@
-import { useAppearance, type Theme, type AccentColor } from '../context/AppearanceContext';
+import { useState, useCallback, useRef } from 'react';
+import { useSpotify } from '../context/SpotifyContext';
+import { useSoundCloud } from '../context/SoundCloudContext';
+import { useAppearance } from '../context/AppearanceContext';
+import './Settings.css';
 
-const THEMES: { value: Theme; label: string }[] = [
-  { value: 'system', label: 'System' },
-  { value: 'dark',   label: 'Dark' },
-  { value: 'light',  label: 'Light' },
-];
+function isValidHex(hex: string) {
+  return /^#[0-9A-Fa-f]{6}$/.test(hex);
+}
 
-const ACCENTS: { value: AccentColor; label: string; color: string }[] = [
-  { value: 'amber',  label: 'Amber',  color: '#C07C3A' },
-  { value: 'purple', label: 'Purple', color: '#6B52C0' },
-  { value: 'blue',   label: 'Blue',   color: '#3A7EC0' },
-  { value: 'teal',   label: 'Teal',   color: '#2A9E8E' },
-  { value: 'green',  label: 'Green',  color: '#3A8C5A' },
-  { value: 'rose',   label: 'Rose',   color: '#C04060' },
-];
+function HexColorPicker({
+  label, value, onChange, placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (hex: string) => void;
+  placeholder: string;
+}) {
+  const [inputVal, setInputVal] = useState(value);
+
+  // Keep local input in sync if external value changes (e.g. Firestore sync)
+  const prevValue = useRef(value);
+  if (prevValue.current !== value) {
+    prevValue.current = value;
+    setInputVal(value);
+  }
+
+  const commit = useCallback((hex: string) => {
+    if (isValidHex(hex)) onChange(hex);
+  }, [onChange]);
+
+  function handleTextChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const val = e.target.value;
+    setInputVal(val);
+    const normalized = val.startsWith('#') ? val : `#${val}`;
+    if (isValidHex(normalized)) commit(normalized);
+  }
+
+  function handleColorPicker(e: React.ChangeEvent<HTMLInputElement>) {
+    const hex = e.target.value;
+    setInputVal(hex);
+    commit(hex);
+  }
+
+  const displayHex = isValidHex(inputVal) ? inputVal : value;
+
+  return (
+    <div className="accent-theme-picker">
+      <span className="accent-theme-label">{label}</span>
+      <div className="accent-picker-row">
+        <label className="accent-swatch-label" title="Open color picker">
+          <input
+            type="color"
+            className="accent-color-native"
+            value={displayHex}
+            onChange={handleColorPicker}
+          />
+          <span className="accent-swatch" style={{ background: displayHex }} />
+        </label>
+        <input
+          type="text"
+          className="input accent-hex-input"
+          value={inputVal}
+          onChange={handleTextChange}
+          onBlur={() => { if (!isValidHex(inputVal)) setInputVal(value); }}
+          spellCheck={false}
+          maxLength={7}
+          placeholder={placeholder}
+        />
+      </div>
+    </div>
+  );
+}
+
+function AccentColorPicker() {
+  const { customAccentHex, darkAccentHex, setCustomAccentHex, setDarkAccentHex } = useAppearance();
+  const lightHex = customAccentHex ?? '#2CC295';
+  const darkHex  = darkAccentHex  ?? lightHex;
+
+  return (
+    <div className="accent-picker-section">
+      <p className="settings-section-label">Accent Color</p>
+      <p className="settings-section-desc">Set separate accent colors for light and dark themes.</p>
+      <div className="accent-themes-row">
+        <HexColorPicker
+          label="Light"
+          value={lightHex}
+          onChange={setCustomAccentHex}
+          placeholder="#2CC295"
+        />
+        <HexColorPicker
+          label="Dark"
+          value={darkHex}
+          onChange={setDarkAccentHex}
+          placeholder={lightHex}
+        />
+      </div>
+    </div>
+  );
+}
 
 function Settings() {
-  const { theme, accentColor, setTheme, setAccentColor } = useAppearance();
+  const spotify = useSpotify();
+  const sc = useSoundCloud();
 
   return (
     <div className="page">
-      <h1 className="page-title">Settings</h1>
+      <div className="card">
+        <AccentColorPicker />
+      </div>
 
       <div className="card">
-        <h3 style={{ fontFamily: 'var(--font-mono)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-muted)', marginBottom: '0.75rem' }}>
-          Appearance
-        </h3>
+        <p className="settings-section-label">Music Accounts</p>
+        <p className="settings-section-desc">Link your streaming accounts to sync your library and play music.</p>
 
-        <div className="form-group">
-          <label className="form-label">Theme</label>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            {THEMES.map((t) => (
-              <button
-                key={t.value}
-                className={`btn btn-sm ${theme === t.value ? 'btn-primary' : 'btn-secondary'}`}
-                onClick={() => setTheme(t.value)}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="form-group" style={{ marginBottom: 0 }}>
-          <label className="form-label">Accent Color</label>
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            {ACCENTS.map((a) => (
-              <button
-                key={a.value}
-                onClick={() => setAccentColor(a.value)}
-                title={a.label}
-                style={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: '50%',
-                  background: a.color,
-                  border: accentColor === a.value ? '2px solid var(--color-text)' : '2px solid transparent',
-                  cursor: 'pointer',
-                  transition: 'border-color 0.15s, transform 0.15s',
-                  transform: accentColor === a.value ? 'scale(1.15)' : 'scale(1)',
-                }}
-              />
-            ))}
-          </div>
+        <div className="service-list">
+          <MusicServiceCard
+            name="Spotify"
+            description="Stream music, playlists & podcasts"
+            accentColor="#1DB954"
+            logo={<SpotifyLogo />}
+            connected={spotify.isConnected}
+            isLoading={spotify.isLoading}
+            username={spotify.user?.displayName ?? null}
+            onConnect={() => spotify.connect()}
+            onDisconnect={() => spotify.disconnect()}
+          />
+          <MusicServiceCard
+            name="SoundCloud"
+            description="Discover tracks & mixes"
+            accentColor="#FF5500"
+            logo={<SoundCloudLogo />}
+            connected={sc.isConnected}
+            username={sc.user?.username ?? null}
+            onConnect={() => sc.connect()}
+            onDisconnect={() => sc.disconnect()}
+          />
         </div>
       </div>
     </div>
+  );
+}
+
+function MusicServiceCard({
+  name, description, logo, accentColor, connected, isLoading = false, username, onConnect, onDisconnect,
+}: {
+  name: string;
+  description: string;
+  logo: React.ReactNode;
+  accentColor: string;
+  connected: boolean;
+  isLoading?: boolean;
+  username: string | null;
+  onConnect: () => void;
+  onDisconnect: () => void;
+}) {
+  return (
+    <div
+      className={`service-card${connected ? ' service-card--connected' : ''}`}
+      style={{ '--service-color': accentColor } as React.CSSProperties}
+    >
+      <div className="service-card-logo">{logo}</div>
+      <div className="service-card-info">
+        <span className="service-card-name">{name}</span>
+        <span className="service-card-desc">
+          {connected && username ? `Connected as ${username}` : description}
+        </span>
+      </div>
+      <div className="service-card-action">
+        {isLoading ? (
+          <span className="service-card-checking">Checking…</span>
+        ) : connected ? (
+          <button className="btn btn-sm btn-secondary service-card-disconnect" onClick={onDisconnect}>
+            Disconnect
+          </button>
+        ) : (
+          <button className="btn btn-sm service-card-connect" onClick={onConnect}>
+            Connect
+          </button>
+        )}
+      </div>
+      {connected && <div className="service-card-dot" />}
+    </div>
+  );
+}
+
+function SpotifyLogo() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="12" fill="#1DB954"/>
+      <path d="M16.8 16.2c-.2.3-.6.4-.9.2-2.5-1.5-5.6-1.9-9.3-1-.4.1-.7-.1-.8-.5-.1-.4.1-.7.4-.8 4.1-1 7.6-.5 10.4 1.1.3.2.4.7.2 1zm1.2-2.5c-.2.4-.7.5-1.1.3-2.8-1.7-7.1-2.2-10.4-1.2-.4.1-.9-.1-1-.5-.1-.4.1-.9.5-1 3.8-1.1 8.4-.6 11.6 1.4.4.2.5.7.3 1.1zm.1-2.6C14.6 9.3 9.5 9.1 6.6 10c-.5.2-1-.1-1.2-.6-.2-.5.1-1 .6-1.2C9.6 7.1 15.3 7.3 19 9.5c.4.2.6.8.3 1.2-.2.4-.8.6-1.2.3z" fill="white"/>
+    </svg>
+  );
+}
+
+function SoundCloudLogo() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="12" fill="#FF5500"/>
+      <path d="M4 13.8c0 1.2.9 2.2 2 2.2h9.5c1.1 0 2-.9 2-2 0-1-.7-1.8-1.6-2-.1-.6-.5-1.1-1-1.4V10c0-1.7-1.3-3-3-3-.9 0-1.8.4-2.4 1.1C9.1 7.7 8.6 7.5 8 7.5c-1.1 0-2 .9-2 2 0 .2 0 .4.1.6C5 10.4 4 12 4 13.8z" fill="white" opacity="0.9"/>
+    </svg>
   );
 }
 

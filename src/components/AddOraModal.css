@@ -1,0 +1,381 @@
+/* Opaque overlay — hides background reflow completely */
+.aom-overlay {
+  background: rgba(10, 11, 14, 0.96);
+  backdrop-filter: none;
+}
+
+/* Override global modal sizing for this one */
+.add-ora-modal {
+  max-width: 500px;
+  padding: 1.75rem 1.75rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  max-height: 88vh;
+  overflow: hidden;
+  background: var(--color-bg);
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+
+.aom-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+}
+
+.aom-eyebrow {
+  margin: 0 0 0.15rem;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-primary);
+}
+
+.aom-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.55rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--color-text);
+  line-height: 1.1;
+}
+
+.aom-close {
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 50%;
+  background: var(--color-bg);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-neu-xs);
+  transition: box-shadow 0.2s, color 0.15s;
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+}
+
+.aom-close:hover  { color: var(--color-text); box-shadow: var(--shadow-neu-sm); }
+.aom-close:active { box-shadow: var(--shadow-neu-inset-sm); }
+
+/* ── Search ──────────────────────────────────────────────────────────────── */
+
+.aom-search-wrap {
+  position: relative;
+  margin-bottom: 1.25rem;
+}
+
+.aom-search-icon {
+  position: absolute;
+  left: 0.85rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+.aom-search {
+  width: 100%;
+  padding: 0.65rem 2.25rem 0.65rem 2.4rem;
+  background: var(--color-bg);
+  border: none;
+  border-radius: var(--radius);
+  color: var(--color-text);
+  font-size: 0.875rem;
+  font-family: var(--font-body);
+  box-shadow: var(--shadow-neu-inset-sm);
+  transition: box-shadow 0.2s;
+}
+
+.aom-search:focus {
+  outline: none;
+  box-shadow: var(--shadow-neu-inset-sm), 0 0 0 3px var(--color-primary-glow);
+}
+
+.aom-search::placeholder { color: var(--color-text-muted); }
+
+.aom-search-clear {
+  position: absolute;
+  right: 0.65rem;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  display: flex;
+  padding: 0.25rem;
+  border-radius: 50%;
+  transition: color 0.15s;
+}
+
+.aom-search-clear:hover { color: var(--color-text); }
+
+/* ── States ──────────────────────────────────────────────────────────────── */
+
+.aom-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 2.5rem 0;
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+}
+
+.aom-spinner {
+  width: 28px;
+  height: 28px;
+  border: 2.5px solid var(--color-border);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: aom-spin 0.7s linear infinite;
+}
+
+@keyframes aom-spin { to { transform: rotate(360deg); } }
+
+.aom-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 2.5rem 0;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+/* ── Scrollable body ─────────────────────────────────────────────────────── */
+
+.aom-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding-right: 2px;
+  padding-bottom: 0.5rem;
+}
+
+/* ── Section labels ──────────────────────────────────────────────────────── */
+
+.aom-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.aom-section-label {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-text-muted);
+}
+
+/* ── Recents tiles ───────────────────────────────────────────────────────── */
+
+.aom-tiles {
+  display: flex;
+  gap: 0.65rem;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.aom-tiles::-webkit-scrollbar { height: 3px; }
+.aom-tiles::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 99px; }
+
+.aom-tile {
+  flex-shrink: 0;
+  width: 82px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 0;
+  text-align: center;
+}
+
+.aom-tile-art {
+  position: relative;
+  width: 82px;
+  height: 82px;
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  overflow: hidden;
+  box-shadow: var(--shadow-neu-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+}
+
+.aom-tile:hover .aom-tile-art { box-shadow: var(--shadow-neu-xs); }
+.aom-tile--added .aom-tile-art { box-shadow: var(--shadow-neu-xs); }
+
+.aom-tile-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.aom-tile-check {
+  position: absolute;
+  inset: 0;
+  background: rgba(28, 28, 30, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+
+.aom-service-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.aom-tile-name {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 82px;
+}
+
+.aom-tile--added .aom-tile-name { color: var(--color-primary-light); }
+
+/* ── List rows ───────────────────────────────────────────────────────────── */
+
+.aom-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.aom-empty {
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+  padding: 0.75rem 0;
+}
+
+.aom-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: var(--radius);
+  transition: background 0.15s;
+}
+
+.aom-row:hover { background: color-mix(in srgb, var(--color-surface) 50%, transparent); }
+
+.aom-row-art {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-neu-xs);
+}
+
+.aom-row-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.aom-row-art-ph {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+}
+
+.aom-row-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.aom-row-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.aom-row--added .aom-row-name { color: var(--color-primary-light); }
+
+.aom-row-sub {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  letter-spacing: 0.02em;
+}
+
+.aom-row-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: var(--color-bg);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: var(--shadow-neu-xs);
+  transition: box-shadow 0.2s, color 0.15s, background 0.15s;
+}
+
+.aom-row-btn:hover {
+  color: var(--color-primary-light);
+  box-shadow: var(--shadow-neu-sm);
+}
+
+.aom-row-btn:active { box-shadow: var(--shadow-neu-inset-sm); }
+
+.aom-row-btn--added {
+  background: var(--color-primary);
+  color: #fff;
+  box-shadow: 0 2px 8px var(--color-primary-glow);
+}
+
+.aom-row-btn--added:hover {
+  background: var(--color-primary-dim);
+  box-shadow: 0 3px 10px var(--color-primary-glow);
+}
+
+/* ── Mobile ──────────────────────────────────────────────────────────────── */
+
+@media (max-width: 560px) {
+  .add-ora-modal { padding: 1.25rem 1.25rem 1rem; max-height: 92vh; }
+  .aom-tile { width: 72px; }
+  .aom-tile-art { width: 72px; height: 72px; }
+  .aom-tile-name { max-width: 72px; }
+}

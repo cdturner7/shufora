@@ -1,0 +1,190 @@
+/* ── Accent color picker ─────────────────────────────────────────────────── */
+.accent-picker-section { }
+
+.accent-themes-row {
+  display: flex;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+.accent-theme-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.accent-theme-label {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+}
+
+.accent-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.accent-swatch-label {
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.accent-color-native {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+
+.accent-swatch {
+  display: block;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-neu-sm);
+  transition: transform 0.15s;
+}
+
+.accent-swatch-label:hover .accent-swatch {
+  transform: scale(1.06);
+}
+
+.accent-hex-input {
+  width: 110px;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+}
+
+/* ── Section labels ──────────────────────────────────────────────────────── */
+.settings-section-label {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+  margin: 0 0 0.3rem;
+}
+
+.settings-section-desc {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  margin: 0 0 1.5rem;
+}
+
+.service-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Neumorphic service card */
+.service-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.1rem 1.25rem;
+  border: none;
+  border-radius: var(--radius-lg);
+  background: var(--color-bg);
+  box-shadow: var(--shadow-neu);
+  transition: box-shadow 0.25s;
+  position: relative;
+  overflow: hidden;
+}
+
+.service-card:hover {
+  box-shadow: 10px 10px 24px var(--neu-dark), -10px -10px 24px var(--neu-light);
+}
+
+.service-card--connected {
+  background: color-mix(in srgb, var(--service-color) 5%, var(--color-bg));
+}
+
+.service-card-logo {
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-neu-sm);
+  background: var(--color-surface);
+}
+
+.service-card-logo svg {
+  width: 28px;
+  height: 28px;
+}
+
+.service-card-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.service-card-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.service-card-desc {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.service-card--connected .service-card-desc {
+  color: color-mix(in srgb, var(--service-color) 70%, var(--color-text-muted));
+}
+
+.service-card-action { flex-shrink: 0; }
+
+.service-card-checking {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.service-card-connect {
+  background: var(--service-color);
+  color: #fff;
+  border: none;
+  font-weight: 600;
+  box-shadow: 4px 4px 10px rgba(0,0,0,0.35), -2px -2px 6px var(--neu-light);
+  transition: box-shadow 0.18s, filter 0.15s;
+}
+
+.service-card-connect:hover {
+  filter: brightness(1.1);
+  box-shadow: 5px 5px 12px rgba(0,0,0,0.4), -2px -2px 7px var(--neu-light);
+}
+
+.service-card-disconnect {
+  font-size: 0.75rem;
+  box-shadow: var(--shadow-neu-sm);
+}
+
+/* Live connection dot */
+.service-card-dot {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--service-color);
+  box-shadow: 0 0 8px var(--service-color);
+}

@@ -7,8 +7,7 @@ function UserProfile() {
 
   return (
     <div className="page">
-      <h1 className="page-title">Profile</h1>
-      <div className="card">
+<div className="card">
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           {user.displayName && (
             <div>

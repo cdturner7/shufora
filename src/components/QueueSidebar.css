@@ -1,0 +1,246 @@
+/* ── Queue sidebar — right panel, mirrors left Sidebar ───────────────────── */
+
+.queue-sidebar {
+  width: 280px;
+  height: 100vh;
+  height: 100dvh;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: row;
+  background: var(--color-bg);
+  box-shadow: -6px 0 24px var(--neu-dark);
+  transition: width 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  overflow: hidden;
+  z-index: 8;
+}
+
+.qs--collapsed {
+  width: 40px;
+}
+
+/* ── Toggle strip ────────────────────────────────────────────────────────── */
+
+.qs-edge {
+  width: 40px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 1.5rem;
+}
+
+.qs-toggle-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-neu-xs);
+  transition: box-shadow 0.2s, color 0.15s;
+  flex-shrink: 0;
+}
+
+.qs-toggle-btn:hover  { color: var(--color-text); box-shadow: var(--shadow-neu-sm); }
+.qs-toggle-btn:active { box-shadow: var(--shadow-neu-inset-sm); }
+
+/* ── Collapsible body ────────────────────────────────────────────────────── */
+
+.qs-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: opacity 0.18s;
+}
+
+.qs--collapsed .qs-body {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ── Player section — top 50% ────────────────────────────────────────────── */
+
+.qs-player {
+  flex: 0 0 50%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Remove card styling — player is flush inside the panel */
+.qs-player .board-player {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* Artwork fills remaining player height instead of forcing 1:1 square */
+.qs-player .bp-art {
+  flex: 1;
+  min-height: 0;
+  aspect-ratio: unset;
+}
+
+/* ── Queue section — bottom 50% ──────────────────────────────────────────── */
+
+.qs-queue {
+  flex: 0 0 50%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-top: 1px solid var(--color-border);
+}
+
+.qs-queue-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0.85rem 0.55rem;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.qs-queue-label {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+}
+
+.qs-queue-count {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--color-primary-subtle);
+  color: var(--color-primary-light);
+}
+
+.qs-queue-empty {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  text-align: center;
+  padding: 1.5rem 0.75rem;
+  margin: 0;
+}
+
+.qs-queue-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* ── Queue rows ──────────────────────────────────────────────────────────── */
+
+.qs-queue-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.38rem 0.6rem 0.38rem 0.35rem;
+  cursor: grab;
+  transition: background 0.12s;
+  border-left: 2px solid transparent;
+  user-select: none;
+}
+
+.qs-queue-row:active { cursor: grabbing; }
+
+.qs-queue-row:hover {
+  background: color-mix(in srgb, var(--color-surface-hover) 60%, transparent);
+}
+
+.qs-queue-row:hover .qs-track-actions { opacity: 1; }
+
+.qs-queue-row--over {
+  border-left-color: var(--color-primary);
+  background: var(--color-primary-subtle);
+}
+
+.qs-drag-handle {
+  color: var(--color-text-muted);
+  opacity: 0.35;
+  flex-shrink: 0;
+  transition: opacity 0.12s;
+}
+
+.qs-queue-row:hover .qs-drag-handle { opacity: 0.75; }
+
+.qs-track-art {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--color-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+}
+
+.qs-track-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.qs-track-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.qs-track-title {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.qs-track-meta {
+  display: block;
+  font-size: 0.64rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.qs-track-actions {
+  display: flex;
+  gap: 0.15rem;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.qs-action-btn {
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 50%;
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-neu-xs);
+  transition: color 0.12s;
+}
+
+.qs-action-btn:hover            { color: var(--color-primary-light); }
+.qs-action-btn--remove:hover    { color: var(--color-danger); }

@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Settings, User, Terminal } from 'lucide-react';
+import { LayoutDashboard, Library, Settings, User, Terminal } from 'lucide-react';
 import { useAppearance } from '../context/AppearanceContext';
 import { useDevAccess } from '../context/DevAccessContext';
 import './Sidebar.css';
@@ -24,7 +24,8 @@ function MobileMenu({ open, onClose }: MobileMenuProps) {
   }, [open]);
 
   const navItems = [
-    { to: '/',         label: 'Dashboard', icon: LayoutDashboard, end: true },
+    { to: '/',         label: 'Board',     icon: LayoutDashboard, end: true },
+    { to: '/library',  label: 'Library',   icon: Library },
     { to: '/settings', label: 'Settings',  icon: Settings },
     { to: '/profile',  label: 'Profile',   icon: User },
     ...(devMode ? [

@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
-import { Bell, Menu, Settings as SettingsIcon } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { Bell, Settings as SettingsIcon, Sun, Moon } from 'lucide-react';
 import { useIsMobile } from '../hooks/useMediaQuery';
 import { useAuth } from '../context/AuthContext';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
@@ -8,14 +8,49 @@ import { useSwUpdate } from '../hooks/useSwUpdate';
 import { useAppearance } from '../context/AppearanceContext';
 import Sidebar from './Sidebar';
 import BottomNav from './BottomNav';
-import MobileMenu from './MobileMenu';
 import UserMenu from './UserMenu';
+import PlayerBar from './PlayerBar';
 import './Layout.css';
+
+function ThemeToggle({ className = 'topbar-icon-btn' }: { className?: string }) {
+  const { theme, setTheme } = useAppearance();
+  const [spinning, setSpinning] = useState(false);
+
+  const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+  function toggle() {
+    setSpinning(true);
+    setTheme(isDark ? 'light' : 'dark');
+    setTimeout(() => setSpinning(false), 400);
+  }
+
+  return (
+    <button
+      className={`${className} theme-toggle${spinning ? ' theme-toggle--spinning' : ''}`}
+      onClick={toggle}
+      title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+      type="button"
+    >
+      {isDark ? <Sun size={17} strokeWidth={1.75} /> : <Moon size={17} strokeWidth={1.75} />}
+    </button>
+  );
+}
 
 function TopbarUserChip() {
   const navigate = useNavigate();
   const { user, logOut } = useAuth();
   const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    if (open) document.addEventListener('pointerdown', onClickOutside);
+    return () => document.removeEventListener('pointerdown', onClickOutside);
+  }, [open]);
 
   if (!user) return null;
 
@@ -36,7 +71,7 @@ function TopbarUserChip() {
   }
 
   return (
-    <div className="topbar-user-wrap">
+    <div className="topbar-user-wrap" ref={wrapRef}>
       <button
         className={`topbar-user-chip${open ? ' open' : ''}`}
         onClick={() => setOpen((v) => !v)}
@@ -71,6 +106,13 @@ function TopbarUserChip() {
             </svg>
             Profile
           </button>
+          <button
+            className="topbar-user-dropdown-item"
+            onClick={() => { setOpen(false); navigate('/settings'); }}
+          >
+            <SettingsIcon size={14} strokeWidth={1.75} />
+            Settings
+          </button>
           <div className="topbar-user-dropdown-divider" />
           <button className="topbar-user-dropdown-item topbar-user-dropdown-item--danger" onClick={handleLogOut}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -92,8 +134,8 @@ function Layout() {
   const { naming } = useAppearance();
   const online = useOnlineStatus();
   const { updateAvailable, applyUpdate } = useSwUpdate();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const navigate = useNavigate();
+  const location = useLocation();
+  const isBoard = location.pathname === '/';
 
   const banners = (
     <>
@@ -115,23 +157,17 @@ function Layout() {
     return (
       <div className="app-layout mobile">
         <header className="app-header">
-          <button
-            className="app-header-menu-btn"
-            onClick={() => setMenuOpen(true)}
-            aria-label="Open menu"
-            type="button"
-          >
-            <Menu size={20} strokeWidth={1.75} />
-          </button>
+          <span className="app-header-title">{naming.appName}</span>
           <div style={{ flex: 1 }} />
+          <ThemeToggle className="app-header-menu-btn" />
           <UserMenu user={user} compact />
         </header>
         {banners}
         <main className="app-content">
           <Outlet />
         </main>
+        <PlayerBar />
         <BottomNav />
-        <MobileMenu open={menuOpen} onClose={() => setMenuOpen(false)} />
       </div>
     );
   }
@@ -146,13 +182,7 @@ function Layout() {
             <button className="topbar-icon-btn" title="Notifications">
               <Bell size={17} strokeWidth={1.75} />
             </button>
-            <button
-              className="topbar-icon-btn"
-              onClick={() => navigate('/settings')}
-              title="Settings"
-            >
-              <SettingsIcon size={17} strokeWidth={1.75} />
-            </button>
+            <ThemeToggle />
             <div className="topbar-divider" />
             <TopbarUserChip />
           </div>
@@ -161,6 +191,7 @@ function Layout() {
         <main className="app-content">
           <Outlet />
         </main>
+        {!isBoard && <PlayerBar />}
         <div id="modal-root" />
       </div>
     </div>

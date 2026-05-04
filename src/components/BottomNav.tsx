@@ -1,12 +1,13 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Settings, User } from 'lucide-react';
+import { LayoutDashboard, Library, Search, Settings } from 'lucide-react';
 import './BottomNav.css';
 
 function BottomNav() {
   const navItems = [
-    { to: '/',         label: 'Dashboard', icon: LayoutDashboard, end: true },
-    { to: '/settings', label: 'Settings',  icon: Settings },
-    { to: '/profile',  label: 'Profile',   icon: User },
+    { to: '/',         label: 'Board',    icon: LayoutDashboard, end: true },
+    { to: '/library',  label: 'Library',  icon: Library },
+    { to: '/search',   label: 'Search',   icon: Search },
+    { to: '/settings', label: 'Settings', icon: Settings },
   ];
 
   return (

@@ -17,6 +17,7 @@ function Login() {
   const next = searchParams.get('next') ?? '/';
 
   const [mode, setMode] = useState<Mode>('signin');
+  const [showEmailForm, setShowEmailForm] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -127,99 +128,14 @@ function Login() {
         <div className="login-brand">
           <span className="login-brand-name">{naming.appName}</span>
         </div>
-        <p className="login-tagline">Welcome back</p>
+        <p className="login-tagline">Your music, everywhere</p>
 
-        <div className="login-tabs">
-          <button
-            className={`login-tab ${mode === 'signin' ? 'active' : ''}`}
-            onClick={() => { setMode('signin'); setError(null); }}
-            type="button"
-          >
-            Sign In
-          </button>
-          <button
-            className={`login-tab ${mode === 'signup' ? 'active' : ''}`}
-            onClick={() => { setMode('signup'); setError(null); }}
-            type="button"
-          >
-            Create Account
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="login-form">
-          {mode === 'signup' && (
-            <div className="form-group">
-              <label className="form-label" htmlFor="displayName">Name</label>
-              <input
-                id="displayName"
-                className="input"
-                type="text"
-                placeholder="Your name"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                autoComplete="name"
-                required
-              />
-            </div>
-          )}
-
-          <div className="form-group">
-            <label className="form-label" htmlFor="email">Email</label>
-            <input
-              id="email"
-              className="input"
-              type="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete={mode === 'signup' ? 'email' : 'username'}
-              required
-            />
-          </div>
-
-          <div className="form-group">
-            <label className="form-label" htmlFor="password">Password</label>
-            <input
-              id="password"
-              className="input"
-              type="password"
-              placeholder={mode === 'signup' ? 'At least 6 characters' : '••••••••'}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-              required
-              minLength={6}
-            />
-          </div>
-
-          {error && <p className="login-error">{error}</p>}
-
-          <button
-            type="submit"
-            className="btn btn-primary btn-lg login-submit"
-            disabled={submitting}
-          >
-            {submitting
-              ? 'Please wait…'
-              : mode === 'signin'
-              ? 'Sign In'
-              : 'Create Account'}
-          </button>
-
-          {mode === 'signin' && isFirebaseConfigured && (
-            <button type="button" className="login-forgot-link" onClick={() => { setForgotMode(true); setError(null); }}>
-              Forgot password?
-            </button>
-          )}
-        </form>
+        {error && <p className="login-error">{error}</p>}
 
         {isFirebaseConfigured ? (
           <>
-            <div className="login-divider">
-              <span>or</span>
-            </div>
             <button
-              className="btn login-google-btn"
+              className="btn login-google-btn login-google-btn--primary"
               onClick={handleGoogle}
               disabled={submitting}
               type="button"
@@ -227,12 +143,185 @@ function Login() {
               <GoogleIcon />
               Continue with Google
             </button>
+
+            <div className="login-divider">
+              <span>or</span>
+            </div>
+
+            {!showEmailForm ? (
+              <button
+                type="button"
+                className="btn login-email-toggle"
+                onClick={() => setShowEmailForm(true)}
+              >
+                Continue with email
+              </button>
+            ) : (
+              <>
+                <div className="login-tabs">
+                  <button
+                    className={`login-tab ${mode === 'signin' ? 'active' : ''}`}
+                    onClick={() => { setMode('signin'); setError(null); }}
+                    type="button"
+                  >
+                    Sign In
+                  </button>
+                  <button
+                    className={`login-tab ${mode === 'signup' ? 'active' : ''}`}
+                    onClick={() => { setMode('signup'); setError(null); }}
+                    type="button"
+                  >
+                    Create Account
+                  </button>
+                </div>
+
+                <form onSubmit={handleSubmit} className="login-form">
+                  {mode === 'signup' && (
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="displayName">Name</label>
+                      <input
+                        id="displayName"
+                        className="input"
+                        type="text"
+                        placeholder="Your name"
+                        value={displayName}
+                        onChange={(e) => setDisplayName(e.target.value)}
+                        autoComplete="name"
+                        required
+                      />
+                    </div>
+                  )}
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="email">Email</label>
+                    <input
+                      id="email"
+                      className="input"
+                      type="email"
+                      placeholder="you@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      autoComplete={mode === 'signup' ? 'email' : 'username'}
+                      required
+                      autoFocus
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="password">Password</label>
+                    <input
+                      id="password"
+                      className="input"
+                      type="password"
+                      placeholder={mode === 'signup' ? 'At least 6 characters' : '••••••••'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+                      required
+                      minLength={6}
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="btn btn-primary btn-lg login-submit"
+                    disabled={submitting}
+                  >
+                    {submitting
+                      ? 'Please wait…'
+                      : mode === 'signin'
+                      ? 'Sign In'
+                      : 'Create Account'}
+                  </button>
+
+                  {mode === 'signin' && (
+                    <button type="button" className="login-forgot-link" onClick={() => { setForgotMode(true); setError(null); }}>
+                      Forgot password?
+                    </button>
+                  )}
+                </form>
+              </>
+            )}
           </>
         ) : (
-          <p className="login-local-notice">
-            Running in local mode — data is saved to this device only.
-            Add Firebase credentials in <code>.env</code> to enable sync and Google sign-in.
-          </p>
+          <>
+            <div className="login-tabs">
+              <button
+                className={`login-tab ${mode === 'signin' ? 'active' : ''}`}
+                onClick={() => { setMode('signin'); setError(null); }}
+                type="button"
+              >
+                Sign In
+              </button>
+              <button
+                className={`login-tab ${mode === 'signup' ? 'active' : ''}`}
+                onClick={() => { setMode('signup'); setError(null); }}
+                type="button"
+              >
+                Create Account
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="login-form">
+              {mode === 'signup' && (
+                <div className="form-group">
+                  <label className="form-label" htmlFor="displayName">Name</label>
+                  <input
+                    id="displayName"
+                    className="input"
+                    type="text"
+                    placeholder="Your name"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    autoComplete="name"
+                    required
+                  />
+                </div>
+              )}
+              <div className="form-group">
+                <label className="form-label" htmlFor="email">Email</label>
+                <input
+                  id="email"
+                  className="input"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoComplete={mode === 'signup' ? 'email' : 'username'}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label" htmlFor="password">Password</label>
+                <input
+                  id="password"
+                  className="input"
+                  type="password"
+                  placeholder={mode === 'signup' ? 'At least 6 characters' : '••••••••'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+                  required
+                  minLength={6}
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="btn btn-primary btn-lg login-submit"
+                disabled={submitting}
+              >
+                {submitting
+                  ? 'Please wait…'
+                  : mode === 'signin'
+                  ? 'Sign In'
+                  : 'Create Account'}
+              </button>
+            </form>
+
+            <p className="login-local-notice">
+              Running in local mode — data is saved to this device only.
+              Add Firebase credentials in <code>.env</code> to enable sync and Google sign-in.
+            </p>
+          </>
         )}
       </div>
     </div>
