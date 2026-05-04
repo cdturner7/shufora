@@ -49,6 +49,23 @@ export function trackFromSoundCloud(t: SoundCloudTrack, streamUrl: string, artwo
   };
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+// Collects all contiguous Spotify track URIs starting at fromIndex.
+// Returns the URIs and the index of the last track in the batch.
+function buildSpotifyBatch(
+  queue: Track[],
+  fromIndex: number,
+): { uris: string[]; batchEnd: number } {
+  const uris: string[] = [];
+  let i = fromIndex;
+  while (i < queue.length && queue[i].service === 'spotify') {
+    uris.push(queue[i].uri);
+    i++;
+  }
+  return { uris, batchEnd: i - 1 };
+}
+
 // ── Context types ─────────────────────────────────────────────────────────────
 
 interface PlayerContextValue {
@@ -95,6 +112,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const prevSpTrackUri = useRef<string | null>(null);
   const maxSpPosition = useRef(0);
   const autoNextFired = useRef(false);
+  // Last queue index included in the active Spotify batch (-1 = no batch).
+  const spotifyBatchEndRef = useRef(-1);
 
   // Refs that always point to current values — used by stable callbacks to
   // avoid stale closure bugs.
@@ -109,9 +128,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   volumeRef.current = volume;
   currentTrackRef.current = currentTrack;
 
-  // playSingleRef always points to the latest playSingle so that callbacks
-  // with empty deps (handleAutoNext, next, previous) never capture stale
-  // Spotify / SC context values.
+  // playSingleRef always points to the latest playSingle so that stable
+  // callbacks (advanceQueue, next, previous) never capture stale context values.
   const playSingleRef = useRef<((track: Track) => Promise<void>) | null>(null);
 
   // ── Sync Spotify SDK state ────────────────────────────────────────────────
@@ -120,12 +138,24 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     const state = spotify.playerState;
     if (!state) return;
     const t = state.track_window.current_track;
-    if (t) {
-      if (t.uri !== prevSpTrackUri.current) {
-        prevSpTrackUri.current = t.uri;
-        maxSpPosition.current = 0;
-        autoNextFired.current = false;
+    if (!t) return;
+
+    // URI changed → Spotify advanced to the next track within the batch.
+    // Sync queueIndex by finding the new URI in the Shufora queue.
+    if (t.uri !== prevSpTrackUri.current) {
+      prevSpTrackUri.current = t.uri;
+      maxSpPosition.current = 0;
+      autoNextFired.current = false;
+
+      // Search from current index onward so duplicate URIs in the queue resolve correctly.
+      const newIdx = queueRef.current.findIndex(
+        (track, i) => i >= queueIndexRef.current && track.service === 'spotify' && track.uri === t.uri,
+      );
+      if (newIdx !== -1 && newIdx !== queueIndexRef.current) {
+        setQueueIndex(newIdx);
+        queueIndexRef.current = newIdx;
       }
+
       setCurrentTrack({
         id: t.id,
         service: 'spotify',
@@ -138,11 +168,16 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       });
       setDuration(state.duration);
     }
+
+    // Batch-end detection: Spotify went silent (paused at position 0) after
+    // playing for at least 5 s — the final track in the batch finished.
+    // advanceQueue handles the transition to a SoundCloud track (or stops).
     if (!state.paused) maxSpPosition.current = Math.max(maxSpPosition.current, state.position);
     if (state.paused && state.position === 0 && maxSpPosition.current > 5000 && !autoNextFired.current) {
       autoNextFired.current = true;
       advanceQueue();
     }
+
     setIsPlaying(!state.paused);
     setPosition(state.position);
   }, [spotify.playerState]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -188,8 +223,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   // ── Core play dispatch ────────────────────────────────────────────────────
   // Not a useCallback — recreated every render so it always captures the
-  // latest spotify / sc / volume refs. playSingleRef.current always points
-  // here so all stable callbacks get the fresh version.
+  // latest spotify / sc / volume context. playSingleRef.current always points
+  // here so stable callbacks always get the fresh version.
 
   async function playSingle(track: Track) {
     setCurrentTrack(track);
@@ -197,9 +232,18 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
     if (track.service === 'spotify') {
       if (sc.audio) { sc.audio.pause(); sc.audio.src = ''; }
-      await spotify.play([track.uri]);
+      // Send the entire contiguous Spotify segment starting at the current index.
+      // Spotify handles natural track-to-track advance within this batch —
+      // no further play() calls needed until we hit a SoundCloud track or the end.
+      const { uris, batchEnd } = buildSpotifyBatch(queueRef.current, queueIndexRef.current);
+      spotifyBatchEndRef.current = batchEnd;
+      prevSpTrackUri.current = null; // reset so URI-sync fires on first SDK event
+      maxSpPosition.current = 0;
+      autoNextFired.current = false;
+      await spotify.play(uris);
     } else {
       if (spotify.isReady) await spotify.pause();
+      spotifyBatchEndRef.current = -1;
       const audio = sc.audio;
       if (!audio) return;
       audio.src = track.streamUrl ?? '';
@@ -209,13 +253,32 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }
   playSingleRef.current = playSingle;
 
-  // ── Advance to next track in queue (used by auto-next) ────────────────────
-  // Stable ref — uses only refs internally so it never goes stale.
+  // ── Re-sync Spotify batch after a queue mutation ──────────────────────────
+  // Re-sends the updated URI list from the current track onward so Spotify's
+  // internal queue matches the Shufora queue. The current track briefly
+  // restarts then seeks back — imperceptible in practice.
+
+  const resyncSpotifyBatch = useCallback(async () => {
+    const cur = currentTrackRef.current;
+    if (!cur || cur.service !== 'spotify') return;
+    const { uris, batchEnd } = buildSpotifyBatch(queueRef.current, queueIndexRef.current);
+    if (uris.length === 0) return;
+    const savedPosition = positionRef.current;
+    spotifyBatchEndRef.current = batchEnd;
+    prevSpTrackUri.current = null;
+    maxSpPosition.current = 0;
+    autoNextFired.current = false;
+    await spotify.play(uris);
+    setTimeout(() => spotify.seek(savedPosition).catch(() => {}), 400);
+  }, [spotify]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Advance to next track in queue ───────────────────────────────────────
 
   const advanceQueue = useCallback(() => {
     const nextIndex = queueIndexRef.current + 1;
     if (nextIndex < queueRef.current.length) {
       setQueueIndex(nextIndex);
+      queueIndexRef.current = nextIndex;
       playSingleRef.current?.(queueRef.current[nextIndex]);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -232,15 +295,18 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     await playSingleRef.current?.(track);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Populate the queue and show the first track without starting playback.
-  // Used for auto-loading the board queue on login so the user just hits play.
+  // Populate the queue without starting playback.
+  // Only updates currentTrack when nothing is already playing — so reshuffling
+  // while a song is playing never changes the "Now Playing" display.
   const loadQueue = useCallback((tracks: Track[], index = 0) => {
     if (tracks.length === 0) return;
     setQueue(tracks);
     setQueueIndex(index);
-    setCurrentTrack(tracks[index]);
     queueRef.current = tracks;
     queueIndexRef.current = index;
+    if (!currentTrackRef.current) {
+      setCurrentTrack(tracks[index]);
+    }
   }, []);
 
   const pause = useCallback(async () => {
@@ -250,13 +316,17 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const resume = useCallback(async () => {
     if (currentTrackRef.current?.service === 'spotify') {
-      // If nothing is loaded in the Spotify SDK (e.g. queue was pre-populated via
-      // loadQueue without actually starting playback), fall back to a REST play call.
       if (spotify.playerState) {
         await spotify.resume();
       } else {
-        const uri = currentTrackRef.current?.uri;
-        if (uri) await spotify.play([uri]);
+        // No active Spotify state (e.g. queue pre-loaded via loadQueue without
+        // starting playback) — send the full batch from the current position.
+        const { uris, batchEnd } = buildSpotifyBatch(queueRef.current, queueIndexRef.current);
+        if (uris.length > 0) {
+          spotifyBatchEndRef.current = batchEnd;
+          prevSpTrackUri.current = null;
+          await spotify.play(uris);
+        }
       }
     } else {
       await sc.audio?.play();
@@ -268,12 +338,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     else await resume();
   }, [isPlaying, pause, resume]);
 
-  // next / previous / skipToIndex use only refs — no stale closure risk.
+  // next / previous / skipToIndex update queueIndexRef BEFORE calling playSingle
+  // so the batch is built from the correct starting index.
 
   const next = useCallback(async () => {
     const nextIndex = queueIndexRef.current + 1;
     if (nextIndex < queueRef.current.length) {
       setQueueIndex(nextIndex);
+      queueIndexRef.current = nextIndex;
       await playSingleRef.current?.(queueRef.current[nextIndex]);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -288,6 +360,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     const prevIndex = queueIndexRef.current - 1;
     if (prevIndex >= 0) {
       setQueueIndex(prevIndex);
+      queueIndexRef.current = prevIndex;
       await playSingleRef.current?.(queueRef.current[prevIndex]);
     }
   }, [spotify, sc]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -301,55 +374,60 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const skipToIndex = useCallback((index: number) => {
     if (index < 0 || index >= queueRef.current.length) return;
     setQueueIndex(index);
+    queueIndexRef.current = index;
     playSingleRef.current?.(queueRef.current[index]);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const removeFromQueue = useCallback((absoluteIndex: number) => {
-    setQueue(prev => {
-      if (absoluteIndex < 0 || absoluteIndex >= prev.length) return prev;
-      const next = [...prev];
-      next.splice(absoluteIndex, 1);
-      queueRef.current = next;
-      // If removed track was before current, shift current index down
-      if (absoluteIndex < queueIndexRef.current) {
-        const newIdx = queueIndexRef.current - 1;
-        setQueueIndex(newIdx);
-        queueIndexRef.current = newIdx;
-      }
-      return next;
-    });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    if (absoluteIndex < 0 || absoluteIndex >= queueRef.current.length) return;
+    const next = [...queueRef.current];
+    next.splice(absoluteIndex, 1);
+    queueRef.current = next;
+
+    if (absoluteIndex < queueIndexRef.current) {
+      const newIdx = queueIndexRef.current - 1;
+      setQueueIndex(newIdx);
+      queueIndexRef.current = newIdx;
+    }
+
+    setQueue(next);
+
+    // If the removed track was inside the active Spotify batch, update Spotify's queue.
+    if (absoluteIndex > queueIndexRef.current && absoluteIndex <= spotifyBatchEndRef.current) {
+      resyncSpotifyBatch();
+    }
+  }, [resyncSpotifyBatch]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const reorderQueue = useCallback((fromAbsolute: number, toAbsolute: number) => {
     if (fromAbsolute === toAbsolute) return;
-    setQueue(prev => {
-      const next = [...prev];
-      const [item] = next.splice(fromAbsolute, 1);
-      next.splice(toAbsolute, 0, item);
-      queueRef.current = next;
-      return next;
-    });
+    const next = [...queueRef.current];
+    const [item] = next.splice(fromAbsolute, 1);
+    next.splice(toAbsolute, 0, item);
+    queueRef.current = next;
+    setQueue(next);
+    // No Spotify resync here — Spotify already has the full batch queued and will
+    // play through it uninterrupted. URI-change detection keeps queueIndex in sync
+    // as each track advances naturally.
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const appendToQueue = useCallback((tracks: Track[]) => {
-    setQueue(prev => {
-      const next = [...prev, ...tracks];
-      queueRef.current = next;
-      return next;
-    });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    const next = [...queueRef.current, ...tracks];
+    queueRef.current = next;
+    setQueue(next);
+  }, []);
 
   // Removes upcoming tracks (after current) matching predicate — history is untouched.
   const removeFromQueueWhere = useCallback((predicate: (track: Track) => boolean) => {
-    setQueue(prev => {
-      const currentIdx = queueIndexRef.current;
-      const history = prev.slice(0, currentIdx + 1);
-      const upcoming = prev.slice(currentIdx + 1).filter(t => !predicate(t));
-      const next = [...history, ...upcoming];
-      queueRef.current = next;
-      return next;
-    });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    const currentIdx = queueIndexRef.current;
+    const q = queueRef.current;
+    const history = q.slice(0, currentIdx + 1);
+    const upcoming = q.slice(currentIdx + 1).filter(t => !predicate(t));
+    if (upcoming.length === q.length - currentIdx - 1) return; // nothing removed
+    const next = [...history, ...upcoming];
+    queueRef.current = next;
+    setQueue(next);
+    if (currentTrackRef.current?.service === 'spotify') resyncSpotifyBatch();
+  }, [resyncSpotifyBatch]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const setVolume = useCallback((v: number) => {
     setVolumeState(v);
@@ -361,7 +439,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   return (
     <PlayerContext.Provider value={{
       currentTrack, queue, queueIndex, isPlaying, position, duration, volume,
-      play, loadQueue, pause, resume, togglePlay, next, previous, seek, setVolume, skipToIndex, removeFromQueue, reorderQueue, appendToQueue, removeFromQueueWhere,
+      play, loadQueue, pause, resume, togglePlay, next, previous, seek, setVolume,
+      skipToIndex, removeFromQueue, reorderQueue, appendToQueue, removeFromQueueWhere,
     }}>
       {children}
     </PlayerContext.Provider>

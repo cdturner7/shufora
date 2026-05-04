@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Music, Plus, X, GripVertical } from 'lucide-react';
+import { Music, Play, Shuffle, Plus, X, GripVertical } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useOras, type Ora } from '../context/OrasContext';
 import { usePlayer, trackFromSpotify, trackFromSoundCloud, type Track } from '../context/PlayerContext';
@@ -60,9 +60,11 @@ function OraCard({ ora, onRemove, onNavigate }: { ora: Ora; onRemove: () => void
 
 function BoardPlayerSection({
   onShuffle,
+  onShuffleBoard,
   onLoadMore,
 }: {
   onShuffle: () => void;
+  onShuffleBoard: () => void;
   onLoadMore: () => void;
 }) {
   const { currentTrack, queue, queueIndex, skipToIndex, removeFromQueue, reorderQueue } = usePlayer();
@@ -133,6 +135,9 @@ function BoardPlayerSection({
       <div className="bps-right">
         <div className="bps-queue-head">
           <span className="bps-queue-label">Up Next</span>
+          <button className="bps-shuffle-btn" type="button" onClick={onShuffleBoard} title="Shuffle Board">
+            <Shuffle size={15} strokeWidth={2} />
+          </button>
         </div>
 
         {upNext.length === 0 ? (
@@ -279,22 +284,42 @@ function Home() {
     loadTracks(oras);
   }, [oraIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // When tracks finish loading and nothing is playing, pre-load a shuffled queue
-  // so the user only needs to press play (no manual shuffle required).
+  // When tracks finish loading (or a new ora is added), auto-populate the queue
+  // if there are no upcoming tracks. Uses loadQueue when idle, appendToQueue when
+  // something is already playing so playback isn't interrupted.
   useEffect(() => {
     if (boardTracks.length === 0) return;
-    if (player.currentTrack) return;
     if (autoQueuedRef.current) return;
     autoQueuedRef.current = true;
+    const hasUpcoming = player.queue.length > player.queueIndex + 1;
+    if (hasUpcoming) return;
     const shuffled = [...boardTracks].sort(() => Math.random() - 0.5);
-    player.loadQueue(shuffled as Track[], 0);
+    if (!player.currentTrack) {
+      player.loadQueue(shuffled as Track[], 0);
+    } else {
+      player.appendToQueue(shuffled as Track[]);
+    }
   }, [boardTracks.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function playBoard() {
+    const { queue } = player;
+    if (queue.length === 0) return;
+    player.play(queue[0], queue, 0);
+  }
 
   function shuffleBoard() {
     const tracks = boardTracksRef.current;
     if (tracks.length === 0) return;
     const shuffled = [...tracks].sort(() => Math.random() - 0.5);
-    player.play(shuffled[0], shuffled as Track[], 0);
+    if (player.currentTrack) {
+      // Keep the currently playing track at index 0 so queueIndex stays correct
+      // and Up Next reflects the new order without touching Now Playing.
+      const cur = player.currentTrack;
+      const rest = shuffled.filter(t => !(t.id === cur.id && t.service === cur.service));
+      player.loadQueue([cur, ...rest], 0);
+    } else {
+      player.loadQueue(shuffled as Track[], 0);
+    }
   }
 
   function loadMoreToQueue() {
@@ -311,8 +336,11 @@ function Home() {
   return (
     <div className="page home-board-page">
       <div className="board-page-header">
-        <h1 className="page-title" style={{ margin: 0 }}>Shuffle Board</h1>
-        <button className="btn btn-primary btn-sm" type="button" onClick={() => setModalOpen(true)}>
+        <button className="btn btn-primary btn-sm" type="button" onClick={playBoard} disabled={!hasOras || player.isPlaying}>
+          <Play size={13} strokeWidth={2.5} fill="currentColor" />
+          Play Board
+        </button>
+        <button className="btn btn-secondary btn-sm" type="button" onClick={() => setModalOpen(true)}>
           <Plus size={14} strokeWidth={2.5} />
           Add Ora
         </button>
@@ -343,7 +371,8 @@ function Home() {
               ))}
             </div>
             <BoardPlayerSection
-              onShuffle={shuffleBoard}
+              onShuffle={playBoard}
+              onShuffleBoard={shuffleBoard}
               onLoadMore={loadMoreToQueue}
             />
           </div>
