@@ -167,6 +167,20 @@
   filter: brightness(0.95);
 }
 
+.pctrl-btn--sm {
+  width: 30px;
+  height: 30px;
+}
+
+.pctrl-btn--active {
+  color: var(--color-accent);
+  box-shadow: var(--shadow-neu-inset-sm);
+}
+
+.pctrl-btn--active:hover {
+  color: var(--color-primary-light);
+}
+
 /* Right: time + volume */
 .player-bar-right {
   display: flex;

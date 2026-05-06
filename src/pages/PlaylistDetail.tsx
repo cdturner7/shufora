@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Music, Play, Pause, Clock } from 'lucide-react';
+import { ArrowLeft, Music, Play, Pause, Clock, ListPlus } from 'lucide-react';
 import { useSpotify } from '../context/SpotifyContext';
 import { useSoundCloud } from '../context/SoundCloudContext';
 import { usePlayer, trackFromSpotify, trackFromSoundCloud, type Track } from '../context/PlayerContext';
@@ -106,16 +106,25 @@ function PlaylistDetail() {
           {!loading && (
             <p className="playlist-detail-count">{tracks.length} tracks</p>
           )}
-          <button
-            className="btn btn-primary playlist-detail-play-all"
-            onClick={playAll}
-            disabled={loading || tracks.length === 0}
-            style={{ '--color-primary': meta.accent, '--color-primary-light': meta.accent } as React.CSSProperties}
-          >
-            {isCurrentPlaylist && player.isPlaying
-              ? <><Pause size={16} strokeWidth={2} /> Playing</>
-              : <><Play size={16} strokeWidth={2} /> Play All</>}
-          </button>
+          <div className="playlist-detail-actions">
+            <button
+              className="btn btn-primary playlist-detail-play-all"
+              onClick={playAll}
+              disabled={loading || tracks.length === 0}
+              style={{ '--color-primary': meta.accent, '--color-primary-light': meta.accent } as React.CSSProperties}
+            >
+              {isCurrentPlaylist && player.isPlaying
+                ? <><Pause size={16} strokeWidth={2} /> Playing</>
+                : <><Play size={16} strokeWidth={2} /> Play All</>}
+            </button>
+            <button
+              className="btn btn-secondary playlist-detail-queue-all"
+              onClick={() => player.appendToQueue(tracks)}
+              disabled={loading || tracks.length === 0}
+            >
+              <ListPlus size={16} strokeWidth={2} /> Add All
+            </button>
+          </div>
         </div>
       </div>
 
@@ -166,6 +175,14 @@ function PlaylistDetail() {
                   <span className="pd-track-artist">{track.artist}</span>
                 </div>
                 <span className="pd-col-dur">{fmt(track.duration)}</span>
+                <button
+                  className="pd-queue-btn"
+                  onClick={e => { e.stopPropagation(); player.appendToQueue([track]); }}
+                  title="Add to queue"
+                  type="button"
+                >
+                  <ListPlus size={14} strokeWidth={1.75} />
+                </button>
               </div>
             );
           })}

@@ -1,11 +1,13 @@
 import { useState, useCallback } from 'react';
-import { Search as SearchIcon } from 'lucide-react';
+import { Search as SearchIcon, ListPlus } from 'lucide-react';
 import { useSpotify } from '../context/SpotifyContext';
+import { usePlayer, trackFromSpotify } from '../context/PlayerContext';
 import type { SpotifyTrack } from '../lib/spotify';
 import './Search.css';
 
 function Search() {
   const spotify = useSpotify();
+  const player = usePlayer();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SpotifyTrack[]>([]);
   const [loading, setLoading] = useState(false);
@@ -68,6 +70,14 @@ function Search() {
                   {track.artists.map(a => a.name).join(', ')}
                 </span>
               </div>
+              <button
+                className="search-result-queue-btn"
+                onClick={e => { e.stopPropagation(); player.appendToQueue([trackFromSpotify(track)]); }}
+                title="Add to queue"
+                type="button"
+              >
+                <ListPlus size={16} strokeWidth={1.75} />
+              </button>
             </li>
           ))}
         </ul>

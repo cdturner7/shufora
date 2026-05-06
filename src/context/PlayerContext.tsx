@@ -3,6 +3,7 @@ import {
 } from 'react';
 import { useSpotify } from './SpotifyContext';
 import { useSoundCloud } from './SoundCloudContext';
+import { useAuth } from './AuthContext';
 import type { SpotifyTrack } from '../lib/spotify';
 import type { SoundCloudTrack } from '../lib/soundcloud';
 
@@ -66,6 +67,33 @@ function buildSpotifyBatch(
   return { uris, batchEnd: i - 1 };
 }
 
+// In-place Fisher-Yates shuffle of a copy.
+function shuffled<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// ── Queue persistence ─────────────────────────────────────────────────────────
+
+const PLAYER_LS_KEY = 'shufora:player';
+
+interface PersistedPlayer { queue: Track[]; queueIndex: number; volume: number; shuffle: boolean; repeat: 'off' | 'one' | 'all'; }
+
+function persistPlayer(state: PersistedPlayer) {
+  try { localStorage.setItem(PLAYER_LS_KEY, JSON.stringify(state)); } catch {}
+}
+
+function loadPersistedPlayer(): PersistedPlayer | null {
+  try {
+    const raw = localStorage.getItem(PLAYER_LS_KEY);
+    return raw ? (JSON.parse(raw) as PersistedPlayer) : null;
+  } catch { return null; }
+}
+
 // ── Context types ─────────────────────────────────────────────────────────────
 
 interface PlayerContextValue {
@@ -85,6 +113,10 @@ interface PlayerContextValue {
   previous: () => Promise<void>;
   seek: (ms: number) => Promise<void>;
   setVolume: (v: number) => void;
+  shuffle: boolean;
+  repeat: 'off' | 'one' | 'all';
+  toggleShuffle: () => void;
+  cycleRepeat: () => void;
   skipToIndex: (index: number) => void;
   removeFromQueue: (absoluteIndex: number) => void;
   reorderQueue: (fromAbsolute: number, toAbsolute: number) => void;
@@ -99,14 +131,20 @@ const PlayerContext = createContext<PlayerContextValue | null>(null);
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const spotify = useSpotify();
   const sc = useSoundCloud();
+  const { user: authUser } = useAuth();
 
-  const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
-  const [queue, setQueue] = useState<Track[]>([]);
-  const [queueIndex, setQueueIndex] = useState(0);
+  const [queue, setQueue] = useState<Track[]>(() => loadPersistedPlayer()?.queue ?? []);
+  const [queueIndex, setQueueIndex] = useState<number>(() => loadPersistedPlayer()?.queueIndex ?? 0);
+  const [currentTrack, setCurrentTrack] = useState<Track | null>(() => {
+    const s = loadPersistedPlayer();
+    return s ? (s.queue[s.queueIndex] ?? null) : null;
+  });
   const [isPlaying, setIsPlaying] = useState(false);
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [volume, setVolumeState] = useState(0.7);
+  const [volume, setVolumeState] = useState<number>(() => loadPersistedPlayer()?.volume ?? 0.7);
+  const [shuffle, setShuffleState] = useState<boolean>(() => loadPersistedPlayer()?.shuffle ?? true);
+  const [repeat, setRepeatState]   = useState<'off' | 'one' | 'all'>(() => loadPersistedPlayer()?.repeat ?? 'off');
 
   const positionTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const prevSpTrackUri = useRef<string | null>(null);
@@ -122,15 +160,26 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const positionRef = useRef(position);
   const volumeRef = useRef(volume);
   const currentTrackRef = useRef(currentTrack);
+  const shuffleRef = useRef(shuffle);
+  const repeatRef  = useRef(repeat);
   queueRef.current = queue;
   queueIndexRef.current = queueIndex;
   positionRef.current = position;
   volumeRef.current = volume;
   currentTrackRef.current = currentTrack;
+  shuffleRef.current = shuffle;
+  repeatRef.current  = repeat;
 
   // playSingleRef always points to the latest playSingle so that stable
   // callbacks (advanceQueue, next, previous) never capture stale context values.
   const playSingleRef = useRef<((track: Track) => Promise<void>) | null>(null);
+
+  // Media Session action handler refs — assigned at render time after useCallbacks are defined.
+  const msResumeRef   = useRef<(() => Promise<void>) | null>(null);
+  const msPauseRef    = useRef<(() => Promise<void>) | null>(null);
+  const msNextRef     = useRef<(() => Promise<void>) | null>(null);
+  const msPrevRef     = useRef<(() => Promise<void>) | null>(null);
+  const msSeekRef     = useRef<((ms: number) => Promise<void>) | null>(null);
 
   // ── Sync Spotify SDK state ────────────────────────────────────────────────
 
@@ -221,6 +270,75 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     return () => { if (positionTimer.current) clearInterval(positionTimer.current); };
   }, [isPlaying, currentTrack?.service, duration]);
 
+  // ── Media Session API ─────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return;
+    navigator.mediaSession.metadata = currentTrack
+      ? new MediaMetadata({
+          title: currentTrack.title,
+          artist: currentTrack.artist,
+          album: currentTrack.album || '',
+          artwork: currentTrack.artwork ? [{ src: currentTrack.artwork }] : [],
+        })
+      : null;
+  }, [currentTrack]);
+
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return;
+    navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+  }, [isPlaying]);
+
+  useEffect(() => {
+    if (!('mediaSession' in navigator) || duration <= 0) return;
+    try {
+      navigator.mediaSession.setPositionState({
+        duration: duration / 1000,
+        playbackRate: 1,
+        position: Math.min(position / 1000, duration / 1000),
+      });
+    } catch {}
+  }, [position, duration]);
+
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return;
+    navigator.mediaSession.setActionHandler('play', () => msResumeRef.current?.());
+    navigator.mediaSession.setActionHandler('pause', () => msPauseRef.current?.());
+    navigator.mediaSession.setActionHandler('previoustrack', () => msPrevRef.current?.());
+    navigator.mediaSession.setActionHandler('nexttrack', () => msNextRef.current?.());
+    navigator.mediaSession.setActionHandler('seekto', (d) => {
+      if (d.seekTime != null) msSeekRef.current?.(d.seekTime * 1000);
+    });
+    return () => {
+      (['play', 'pause', 'previoustrack', 'nexttrack', 'seekto'] as MediaSessionAction[]).forEach(
+        a => navigator.mediaSession.setActionHandler(a, null),
+      );
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Persist queue to localStorage ────────────────────────────────────────
+
+  useEffect(() => {
+    persistPlayer({ queue, queueIndex, volume, shuffle, repeat });
+  }, [queue, queueIndex, volume, shuffle, repeat]);
+
+  // ── Clear queue when user logs out or switches accounts ───────────────────
+
+  const prevUidRef = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    const uid = authUser?.uid ?? null;
+    if (prevUidRef.current !== undefined && prevUidRef.current !== uid) {
+      localStorage.removeItem(PLAYER_LS_KEY);
+      setQueue([]);
+      setCurrentTrack(null);
+      setQueueIndex(0);
+      queueRef.current = [];
+      queueIndexRef.current = 0;
+      currentTrackRef.current = null;
+    }
+    prevUidRef.current = uid;
+  }, [authUser?.uid]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Core play dispatch ────────────────────────────────────────────────────
   // Not a useCallback — recreated every render so it always captures the
   // latest spotify / sc / volume context. playSingleRef.current always points
@@ -233,8 +351,6 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     if (track.service === 'spotify') {
       if (sc.audio) { sc.audio.pause(); sc.audio.src = ''; }
       // Send the entire contiguous Spotify segment starting at the current index.
-      // Spotify handles natural track-to-track advance within this batch —
-      // no further play() calls needed until we hit a SoundCloud track or the end.
       const { uris, batchEnd } = buildSpotifyBatch(queueRef.current, queueIndexRef.current);
       spotifyBatchEndRef.current = batchEnd;
       prevSpTrackUri.current = null; // reset so URI-sync fires on first SDK event
@@ -253,43 +369,46 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }
   playSingleRef.current = playSingle;
 
-  // ── Re-sync Spotify batch after a queue mutation ──────────────────────────
-  // Re-sends the updated URI list from the current track onward so Spotify's
-  // internal queue matches the Shufora queue. The current track briefly
-  // restarts then seeks back — imperceptible in practice.
-
-  const resyncSpotifyBatch = useCallback(async () => {
-    const cur = currentTrackRef.current;
-    if (!cur || cur.service !== 'spotify') return;
-    const { uris, batchEnd } = buildSpotifyBatch(queueRef.current, queueIndexRef.current);
-    if (uris.length === 0) return;
-    const savedPosition = positionRef.current;
-    spotifyBatchEndRef.current = batchEnd;
-    prevSpTrackUri.current = null;
-    maxSpPosition.current = 0;
-    autoNextFired.current = false;
-    await spotify.play(uris);
-    setTimeout(() => spotify.seek(savedPosition).catch(() => {}), 400);
-  }, [spotify]); // eslint-disable-line react-hooks/exhaustive-deps
-
   // ── Advance to next track in queue ───────────────────────────────────────
 
   const advanceQueue = useCallback(() => {
-    const nextIndex = queueIndexRef.current + 1;
-    if (nextIndex < queueRef.current.length) {
-      setQueueIndex(nextIndex);
-      queueIndexRef.current = nextIndex;
-      playSingleRef.current?.(queueRef.current[nextIndex]);
+    const q = queueRef.current;
+    const currentIdx = queueIndexRef.current;
+    const rpt = repeatRef.current;
+
+    if (rpt === 'one' && currentTrackRef.current) {
+      playSingleRef.current?.(currentTrackRef.current);
+      return;
     }
+
+    const nextIndex = currentIdx + 1;
+    if (nextIndex >= q.length) {
+      if (rpt === 'all' && q.length > 0) {
+        setQueueIndex(0);
+        queueIndexRef.current = 0;
+        playSingleRef.current?.(q[0]);
+      }
+      return;
+    }
+
+    setQueueIndex(nextIndex);
+    queueIndexRef.current = nextIndex;
+    playSingleRef.current?.(q[nextIndex]);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Public controls ───────────────────────────────────────────────────────
 
   const play = useCallback(async (track: Track, newQueue?: Track[], index = 0) => {
     if (newQueue) {
-      setQueue(newQueue);
+      let finalQueue = newQueue;
+      if (shuffleRef.current) {
+        const history = newQueue.slice(0, index + 1);
+        const upcoming = shuffled(newQueue.slice(index + 1));
+        finalQueue = [...history, ...upcoming];
+      }
+      setQueue(finalQueue);
       setQueueIndex(index);
-      queueRef.current = newQueue;
+      queueRef.current = finalQueue;
       queueIndexRef.current = index;
     }
     await playSingleRef.current?.(track);
@@ -300,14 +419,20 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   // while a song is playing never changes the "Now Playing" display.
   const loadQueue = useCallback((tracks: Track[], index = 0) => {
     if (tracks.length === 0) return;
-    setQueue(tracks);
+    let finalTracks = tracks;
+    if (shuffleRef.current) {
+      const history = tracks.slice(0, index + 1);
+      const upcoming = shuffled(tracks.slice(index + 1));
+      finalTracks = [...history, ...upcoming];
+    }
+    setQueue(finalTracks);
     setQueueIndex(index);
-    queueRef.current = tracks;
+    queueRef.current = finalTracks;
     queueIndexRef.current = index;
     if (!currentTrackRef.current) {
-      setCurrentTrack(tracks[index]);
+      setCurrentTrack(finalTracks[index]);
     }
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pause = useCallback(async () => {
     if (currentTrackRef.current?.service === 'spotify') await spotify.pause();
@@ -329,7 +454,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         }
       }
     } else {
-      await sc.audio?.play();
+      const audio = sc.audio;
+      if (!audio) return;
+      // After a page refresh the audio element starts with no src — re-attach.
+      if (!audio.src && currentTrackRef.current?.streamUrl) {
+        audio.src = currentTrackRef.current.streamUrl;
+        audio.volume = volumeRef.current;
+      }
+      await audio.play().catch(() => {});
     }
   }, [spotify, sc]);
 
@@ -342,12 +474,23 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   // so the batch is built from the correct starting index.
 
   const next = useCallback(async () => {
-    const nextIndex = queueIndexRef.current + 1;
-    if (nextIndex < queueRef.current.length) {
-      setQueueIndex(nextIndex);
-      queueIndexRef.current = nextIndex;
-      await playSingleRef.current?.(queueRef.current[nextIndex]);
+    const q = queueRef.current;
+    const currentIdx = queueIndexRef.current;
+    const rpt = repeatRef.current;
+
+    const nextIndex = currentIdx + 1;
+    if (nextIndex >= q.length) {
+      if (rpt === 'all' && q.length > 0) {
+        setQueueIndex(0);
+        queueIndexRef.current = 0;
+        await playSingleRef.current?.(q[0]);
+      }
+      return;
     }
+
+    setQueueIndex(nextIndex);
+    queueIndexRef.current = nextIndex;
+    await playSingleRef.current?.(q[nextIndex]);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const previous = useCallback(async () => {
@@ -391,12 +534,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }
 
     setQueue(next);
-
-    // If the removed track was inside the active Spotify batch, update Spotify's queue.
-    if (absoluteIndex > queueIndexRef.current && absoluteIndex <= spotifyBatchEndRef.current) {
-      resyncSpotifyBatch();
-    }
-  }, [resyncSpotifyBatch]); // eslint-disable-line react-hooks/exhaustive-deps
+    // No Spotify resync — resyncing restarts the current track (audible stutter).
+    // Spotify's internal batch plays out naturally; URI-sync realigns on the next track.
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const reorderQueue = useCallback((fromAbsolute: number, toAbsolute: number) => {
     if (fromAbsolute === toAbsolute) return;
@@ -411,12 +551,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const appendToQueue = useCallback((tracks: Track[]) => {
-    const next = [...queueRef.current, ...tracks];
+    const incoming = shuffleRef.current ? shuffled(tracks) : tracks;
+    const next = [...queueRef.current, ...incoming];
     queueRef.current = next;
     setQueue(next);
   }, []);
 
   // Removes upcoming tracks (after current) matching predicate — history is untouched.
+  // No Spotify resync — resyncing restarts the current track (audible stutter).
   const removeFromQueueWhere = useCallback((predicate: (track: Track) => boolean) => {
     const currentIdx = queueIndexRef.current;
     const q = queueRef.current;
@@ -426,8 +568,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     const next = [...history, ...upcoming];
     queueRef.current = next;
     setQueue(next);
-    if (currentTrackRef.current?.service === 'spotify') resyncSpotifyBatch();
-  }, [resyncSpotifyBatch]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const setVolume = useCallback((v: number) => {
     setVolumeState(v);
@@ -436,9 +577,35 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     spotify.setVolume(v).catch(() => {});
   }, [spotify, sc]);
 
+  const toggleShuffle = useCallback(() => {
+    setShuffleState(s => {
+      const next = !s;
+      if (next) {
+        // Turning shuffle on — randomize the upcoming slice so the Up Next list
+        // is stable (advances linearly through the pre-shuffled order).
+        const q = queueRef.current;
+        const idx = queueIndexRef.current;
+        const history = q.slice(0, idx + 1);
+        const upcoming = shuffled(q.slice(idx + 1));
+        const newQ = [...history, ...upcoming];
+        queueRef.current = newQ;
+        setQueue(newQ);
+      }
+      return next;
+    });
+  }, []);
+  const cycleRepeat   = useCallback(() => setRepeatState(r => r === 'off' ? 'one' : r === 'one' ? 'all' : 'off'), []);
+
+  msResumeRef.current   = resume;
+  msPauseRef.current    = pause;
+  msNextRef.current     = next;
+  msPrevRef.current     = previous;
+  msSeekRef.current     = seek;
+
   return (
     <PlayerContext.Provider value={{
       currentTrack, queue, queueIndex, isPlaying, position, duration, volume,
+      shuffle, repeat, toggleShuffle, cycleRepeat,
       play, loadQueue, pause, resume, togglePlay, next, previous, seek, setVolume,
       skipToIndex, removeFromQueue, reorderQueue, appendToQueue, removeFromQueueWhere,
     }}>

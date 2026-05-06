@@ -16,6 +16,7 @@ interface SoundCloudContextValue {
   isConnected: boolean;
   user: SoundCloudUser | null;
   audio: HTMLAudioElement | null;
+  playlists: SoundCloudPlaylist[];
   connect: () => void;
   disconnect: () => void;
   handleCallback: (hash: string) => void;
@@ -37,18 +38,54 @@ export function SoundCloudProvider({ children }: { children: ReactNode }) {
   const authUidRef = useRef<string | null>(null);
   authUidRef.current = authUser?.uid ?? null;
 
-  const [tokens, setTokens] = useState<SoundCloudTokens | null>(() => loadSCTokens());
+  // Always start null — tokens are loaded after auth resolves so they're always for the right user
+  const [tokens, setTokens] = useState<SoundCloudTokens | null>(null);
   const [user, setUser] = useState<SoundCloudUser | null>(null);
+  const [playlists, setPlaylists] = useState<SoundCloudPlaylist[]>([]);
+  const playlistsPromiseRef = useRef<Promise<SoundCloudPlaylist[]> | null>(null);
   // Single shared Audio element for SoundCloud playback
   const audioRef = useRef<HTMLAudioElement>(new Audio());
   audioRef.current.crossOrigin = 'anonymous';
+  // Track which user's tokens are loaded to detect user switches
+  const loadedForUidRef = useRef<string | null>(null);
 
   const isConnected = tokens !== null;
 
-  // Sync tokens from Firestore when user logs in on a new device (no localStorage)
+  // Load tokens after auth resolves; clear when user logs out or switches accounts
   useEffect(() => {
-    if (!authUser?.uid || tokens) return;
-    loadSCTokensForUser(authUser.uid).then(firestoreTokens => {
+    if (!authUser?.uid) {
+      // Logged out — wipe token cache so the next user starts clean
+      clearSCTokens();
+      setTokens(null);
+      setUser(null);
+      playlistsPromiseRef.current = null;
+      loadedForUidRef.current = null;
+      return;
+    }
+
+    const uid = authUser.uid;
+
+    // A different user logged in — discard the previous user's cached tokens
+    if (loadedForUidRef.current !== null && loadedForUidRef.current !== uid) {
+      clearSCTokens();
+      setTokens(null);
+      setUser(null);
+      playlistsPromiseRef.current = null;
+    }
+    loadedForUidRef.current = uid;
+
+    if (tokens) return;
+
+    // Try localStorage cache first (instant, no network)
+    const cached = loadSCTokens();
+    if (cached) {
+      setTokens(cached);
+      getSCUser(cached.accessToken).then(setUser).catch(() => {});
+      return;
+    }
+
+    // Fall through to Firestore (cross-device / cleared localStorage)
+    loadSCTokensForUser(uid).then(firestoreTokens => {
       if (firestoreTokens && !tokens) {
         saveSCTokens(firestoreTokens);
         setTokens(firestoreTokens);
@@ -85,6 +122,8 @@ export function SoundCloudProvider({ children }: { children: ReactNode }) {
     clearSCTokens();
     setTokens(null);
     setUser(null);
+    setPlaylists([]);
+    playlistsPromiseRef.current = null;
     if (authUidRef.current) {
       clearSCTokensForUser(authUidRef.current).catch(() => {});
     }
@@ -93,9 +132,14 @@ export function SoundCloudProvider({ children }: { children: ReactNode }) {
   // ── Library ──────────────────────────────────────────────────────────────────
 
   const getPlaylists = useCallback(async (): Promise<SoundCloudPlaylist[]> => {
-    const token = tokens?.accessToken;
-    if (!token) return [];
-    return getSCPlaylists(token);
+    if (!playlistsPromiseRef.current) {
+      const token = tokens?.accessToken;
+      if (!token) return [];
+      playlistsPromiseRef.current = getSCPlaylists(token)
+        .then(result => { setPlaylists(result); return result; })
+        .catch(() => { playlistsPromiseRef.current = null; return [] as SoundCloudPlaylist[]; });
+    }
+    return playlistsPromiseRef.current;
   }, [tokens]);
 
   const getLikes = useCallback(async (): Promise<SoundCloudTrack[]> => {
@@ -120,16 +164,9 @@ export function SoundCloudProvider({ children }: { children: ReactNode }) {
     return getSCartwork(track);
   }, []);
 
-  // Fetch user on initial load
-  useState(() => {
-    if (tokens) {
-      getSCUser(tokens.accessToken).then(setUser).catch(() => {});
-    }
-  });
-
   return (
     <SoundCloudContext.Provider value={{
-      isConnected, user, audio: audioRef.current,
+      isConnected, user, audio: audioRef.current, playlists,
       connect, disconnect, handleCallback, getToken,
       getPlaylists, getLikes, search, getStreamUrl, getArtwork,
     }}>

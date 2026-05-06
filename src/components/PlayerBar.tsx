@@ -1,6 +1,6 @@
 import { useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, ChevronUp } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, ChevronUp, Shuffle, Repeat, Repeat1 } from 'lucide-react';
 import { usePlayer } from '../context/PlayerContext';
 import './PlayerBar.css';
 
@@ -9,9 +9,9 @@ function fmt(ms: number) {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
-function PlayerBar() {
+function PlayerBar({ onExpand }: { onExpand?: () => void }) {
   const navigate = useNavigate();
-  const { currentTrack, isPlaying, position, duration, volume, togglePlay, next, previous, seek, setVolume } = usePlayer();
+  const { currentTrack, isPlaying, position, duration, volume, togglePlay, next, previous, seek, setVolume, shuffle, repeat, toggleShuffle, cycleRepeat } = usePlayer();
   const trackRef = useRef<HTMLDivElement>(null);
 
   const handleProgressClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -53,7 +53,7 @@ function PlayerBar() {
       </div>
 
       <div className="player-bar-body">
-        <div className="player-bar-left" onClick={() => navigate('/now-playing')} role="button" tabIndex={0}>
+        <div className="player-bar-left" onClick={() => onExpand ? onExpand() : navigate('/now-playing')} role="button" tabIndex={0}>
           <div className="player-bar-art">
             {currentTrack.artwork
               ? <img src={currentTrack.artwork} alt={currentTrack.title} />
@@ -67,6 +67,9 @@ function PlayerBar() {
         </div>
 
         <div className="player-bar-controls">
+          <button className={`pctrl-btn pctrl-btn--sm${shuffle ? ' pctrl-btn--active' : ''}`} onClick={toggleShuffle} title={shuffle ? 'Shuffle on' : 'Shuffle off'}>
+            <Shuffle size={14} strokeWidth={2} />
+          </button>
           <button className="pctrl-btn" onClick={previous} title="Previous">
             <SkipBack size={16} strokeWidth={2} />
           </button>
@@ -75,6 +78,9 @@ function PlayerBar() {
           </button>
           <button className="pctrl-btn" onClick={next} title="Next">
             <SkipForward size={16} strokeWidth={2} />
+          </button>
+          <button className={`pctrl-btn pctrl-btn--sm${repeat !== 'off' ? ' pctrl-btn--active' : ''}`} onClick={cycleRepeat} title={repeat === 'off' ? 'Repeat off' : repeat === 'one' ? 'Repeat one' : 'Repeat all'}>
+            {repeat === 'one' ? <Repeat1 size={14} strokeWidth={2} /> : <Repeat size={14} strokeWidth={2} />}
           </button>
         </div>
 

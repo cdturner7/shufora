@@ -38,6 +38,14 @@
   }
 }
 
+@media (min-width: 768px) {
+  .app-layout.desktop .app-content:has(.home-board-page) {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+}
+
 .app-header {
   background-color: var(--color-bg);
   border-bottom: none;

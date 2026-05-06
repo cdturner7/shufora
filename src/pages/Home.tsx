@@ -62,19 +62,22 @@ function BoardPlayerSection({
   onShuffle,
   onShuffleBoard,
   onLoadMore,
+  isLoadingTracks,
 }: {
   onShuffle: () => void;
   onShuffleBoard: () => void;
   onLoadMore: () => void;
+  isLoadingTracks: boolean;
 }) {
   const { currentTrack, queue, queueIndex, skipToIndex, removeFromQueue, reorderQueue } = usePlayer();
   const upNext = queue.slice(queueIndex + 1);
 
+  const [visibleCount, setVisibleCount] = useState(30);
+  const visibleUpNext = upNext.slice(0, visibleCount);
+
   // Desktop mouse drag
   const dragFromRef = useRef<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
-  const loadingMoreRef = useRef(false);
-
   // Touch drag
   const listContainerRef = useRef<HTMLDivElement>(null);
   const touchDragRef = useRef<{ fromAbsIdx: number } | null>(null);
@@ -117,10 +120,12 @@ function BoardPlayerSection({
 
   function handleScroll(e: React.UIEvent<HTMLDivElement>) {
     const el = e.currentTarget;
-    if (el.scrollHeight - el.scrollTop - el.clientHeight < 150 && !loadingMoreRef.current) {
-      loadingMoreRef.current = true;
-      onLoadMore();
-      setTimeout(() => { loadingMoreRef.current = false; }, 800);
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < 200) {
+      if (visibleCount < upNext.length) {
+        setVisibleCount(v => v + 20);
+      } else {
+        onLoadMore();
+      }
     }
   }
 
@@ -141,12 +146,26 @@ function BoardPlayerSection({
         </div>
 
         {upNext.length === 0 ? (
-          <p className="bps-queue-empty">
-            {currentTrack ? 'End of queue.' : 'Shuffle the board to start playing.'}
-          </p>
+          isLoadingTracks ? (
+            <div className="bps-skeleton">
+              {Array.from({ length: 6 }, (_, i) => (
+                <div key={i} className="bps-skeleton-row">
+                  <div className="bps-skel bps-skel--art" />
+                  <div className="bps-skeleton-info">
+                    <div className="bps-skel bps-skel--title" />
+                    <div className="bps-skel bps-skel--meta" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="bps-queue-empty">
+              {currentTrack ? 'End of queue.' : 'Shuffle the board to start playing.'}
+            </p>
+          )
         ) : (
           <div className="bps-queue-list" ref={listContainerRef} onScroll={handleScroll}>
-            {upNext.map((track, i) => {
+            {visibleUpNext.map((track, i) => {
               const absIdx = queueIndex + 1 + i;
               const isOver = dragOverIdx === absIdx;
               return (
@@ -194,6 +213,11 @@ function BoardPlayerSection({
                 </div>
               );
             })}
+            {upNext.length > visibleCount && (
+              <div className="bps-queue-more">
+                {upNext.length - visibleCount} more — scroll to load
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -223,6 +247,7 @@ function Home() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [boardTracks, setBoardTracks] = useState<BoardTrack[]>([]);
+  const [loadingTracks, setLoadingTracks] = useState(false);
 
   const spotifyRef = { current: spotify };
   const scRef = { current: sc };
@@ -240,8 +265,9 @@ function Home() {
   useEffect(() => { autoQueuedRef.current = false; }, [oraIds]);
 
   const loadTracks = useCallback(async (oraList: Ora[]) => {
-    setBoardTracks([]); // clear while loading so boardTracks.length === 0 represents in-progress
-    if (oraList.length === 0) return;
+    setBoardTracks([]);
+    if (oraList.length === 0) { setLoadingTracks(false); return; }
+    setLoadingTracks(true);
 
     let scPlaylistCache: SoundCloudPlaylist[] | null = null;
     const all: BoardTrack[] = [];
@@ -278,6 +304,7 @@ function Home() {
     });
 
     setBoardTracks(deduped);
+    setLoadingTracks(false);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -293,13 +320,26 @@ function Home() {
     autoQueuedRef.current = true;
     const hasUpcoming = player.queue.length > player.queueIndex + 1;
     if (hasUpcoming) return;
-    const shuffled = [...boardTracks].sort(() => Math.random() - 0.5);
     if (!player.currentTrack) {
-      player.loadQueue(shuffled as Track[], 0);
+      player.loadQueue(boardTracks as Track[], 0);
     } else {
-      player.appendToQueue(shuffled as Track[]);
+      player.appendToQueue(boardTracks as Track[]);
     }
   }, [boardTracks.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-refill: when fewer than 20 tracks remain upcoming, append the full
+  // board again so playback never stops.
+  useEffect(() => {
+    const remaining = player.queue.length - player.queueIndex - 1;
+    if (remaining < 20 && boardTracksRef.current.length > 0) {
+      player.appendToQueue(boardTracksRef.current as Track[]);
+    }
+  }, [player.queueIndex]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function appendMoreToQueue() {
+    if (boardTracksRef.current.length === 0) return;
+    player.appendToQueue(boardTracksRef.current as Track[]);
+  }
 
   function playBoard() {
     const { queue } = player;
@@ -310,25 +350,13 @@ function Home() {
   function shuffleBoard() {
     const tracks = boardTracksRef.current;
     if (tracks.length === 0) return;
-    const shuffled = [...tracks].sort(() => Math.random() - 0.5);
     if (player.currentTrack) {
-      // Keep the currently playing track at index 0 so queueIndex stays correct
-      // and Up Next reflects the new order without touching Now Playing.
       const cur = player.currentTrack;
-      const rest = shuffled.filter(t => !(t.id === cur.id && t.service === cur.service));
+      const rest = (tracks as Track[]).filter(t => !(t.id === cur.id && t.service === cur.service));
       player.loadQueue([cur, ...rest], 0);
     } else {
-      player.loadQueue(shuffled as Track[], 0);
+      player.loadQueue(tracks as Track[], 0);
     }
-  }
-
-  function loadMoreToQueue() {
-    const tracks = boardTracksRef.current;
-    if (tracks.length === 0) return;
-    const batch: Track[] = Array.from({ length: 20 }, () =>
-      tracks[Math.floor(Math.random() * tracks.length)] as Track
-    );
-    player.appendToQueue(batch);
   }
 
   const hasOras = oras.length > 0;
@@ -373,7 +401,8 @@ function Home() {
             <BoardPlayerSection
               onShuffle={playBoard}
               onShuffleBoard={shuffleBoard}
-              onLoadMore={loadMoreToQueue}
+              onLoadMore={appendMoreToQueue}
+              isLoadingTracks={loadingTracks}
             />
           </div>
         </div>

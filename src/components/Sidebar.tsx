@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Library, Terminal, ChevronLeft, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, Library, Terminal, Palette, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAppearance } from '../context/AppearanceContext';
 import { useDevAccess } from '../context/DevAccessContext';
 import './Sidebar.css';
@@ -23,7 +23,10 @@ function Sidebar() {
   const navItems = [
     { to: '/',        label: 'Board',     icon: LayoutDashboard, end: true },
     { to: '/library', label: 'Library',   icon: Library },
-    ...(devMode ? [{ to: '/dev/logs', label: 'Dev Logs', icon: Terminal }] : []),
+    ...(devMode ? [
+      { to: '/admin/style-guide', label: 'Style Guide', icon: Palette },
+      { to: '/dev/logs',          label: 'Dev Logs',    icon: Terminal },
+    ] : []),
   ];
 
   return (
@@ -43,7 +46,7 @@ function Sidebar() {
             end={end}
             title={collapsed ? label : undefined}
             className={({ isActive }) =>
-              `sidebar-link${isActive ? ' active' : ''}${to.startsWith('/dev') ? ' sidebar-link--dev' : ''}`
+              `sidebar-link${isActive ? ' active' : ''}${(to.startsWith('/dev') || to.startsWith('/admin')) ? ' sidebar-link--dev' : ''}`
             }
           >
             <Icon className="sidebar-icon" size={17} strokeWidth={1.75} />

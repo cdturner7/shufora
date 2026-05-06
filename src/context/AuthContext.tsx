@@ -19,6 +19,7 @@ import {
   updatePassword,
   sendPasswordResetEmail,
   type User,
+  type UserInfo,
 } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
@@ -32,6 +33,8 @@ interface AuthContextValue {
   logOut: () => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   sendPasswordReset: (email: string) => Promise<void>;
+  updateDisplayName: (name: string) => Promise<void>;
+  providerData: UserInfo[];
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -88,6 +91,8 @@ function asUser(u: LocalUser): User {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  // Incremented after updateDisplayName to force consumers to re-read the mutated user object.
+  const [, forceProfileUpdate] = useState(0);
 
   useEffect(() => {
     if (auth) {
@@ -171,8 +176,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await sendPasswordResetEmail(auth, email);
   }, []);
 
+  const updateDisplayName = useCallback(async (name: string) => {
+    if (auth?.currentUser) {
+      await updateProfile(auth.currentUser, { displayName: name });
+      if (db) {
+        setDoc(
+          doc(db, 'users', auth.currentUser.uid, 'data', 'profile'),
+          { displayName: name }, { merge: true },
+        ).catch(() => {});
+      }
+      forceProfileUpdate(n => n + 1);
+    } else {
+      const local = loadLocalUser();
+      if (local) {
+        local.displayName = name;
+        saveLocalUser(local);
+        setUser(asUser(local));
+      }
+    }
+  }, []);
+
+  const providerData: UserInfo[] = user?.providerData ?? [];
+
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signInWithGoogle, logOut, changePassword, sendPasswordReset }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signUp, signInWithGoogle, logOut, changePassword, sendPasswordReset, updateDisplayName, providerData }}>
       {children}
     </AuthContext.Provider>
   );

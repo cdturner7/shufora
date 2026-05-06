@@ -10,6 +10,7 @@ import Sidebar from './Sidebar';
 import BottomNav from './BottomNav';
 import UserMenu from './UserMenu';
 import PlayerBar from './PlayerBar';
+import QueueSidebar from './QueueSidebar';
 import './Layout.css';
 
 function ThemeToggle({ className = 'topbar-icon-btn' }: { className?: string }) {
@@ -137,6 +138,8 @@ function Layout() {
   const location = useLocation();
   const isBoard = location.pathname === '/';
 
+  const [queueOpen, setQueueOpen] = useState(false);
+
   const banners = (
     <>
       {!online && (
@@ -191,9 +194,10 @@ function Layout() {
         <main className="app-content">
           <Outlet />
         </main>
-        {!isBoard && <PlayerBar />}
+        {!isBoard && <PlayerBar onExpand={() => setQueueOpen(true)} />}
         <div id="modal-root" />
       </div>
+      {!isBoard && <QueueSidebar open={queueOpen} onClose={() => setQueueOpen(false)} />}
     </div>
   );
 }

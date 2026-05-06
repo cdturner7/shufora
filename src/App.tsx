@@ -8,8 +8,10 @@ import { SpotifyProvider } from './context/SpotifyContext';
 import { SoundCloudProvider } from './context/SoundCloudContext';
 import { PlayerProvider } from './context/PlayerContext';
 import { OrasProvider } from './context/OrasContext';
+import { StyleProvider } from './context/StyleContext';
 import { setLoggerUid, logger } from './utils/logger';
 import ProtectedRoute from './components/ProtectedRoute';
+import AdminRoute from './components/AdminRoute';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Home from './pages/Home';
@@ -20,6 +22,7 @@ import NowPlaying from './pages/NowPlaying';
 import UserProfile from './pages/UserProfile';
 import Search from './pages/Search';
 import PlaylistDetail from './pages/PlaylistDetail';
+import StyleGuide from './pages/StyleGuide';
 
 function LoggerSync() {
   const { user, loading } = useAuth();
@@ -46,6 +49,7 @@ function App() {
     <AuthProvider>
       <LoggerSync />
       <DevAccessProvider>
+        <StyleProvider>
         <AppearanceProvider>
           <ToastProvider>
             <SpotifyProvider>
@@ -68,6 +72,12 @@ function App() {
                         <Route path="settings" element={<Settings />} />
                         <Route path="profile"  element={<UserProfile />} />
                       </Route>
+
+                      <Route element={<AdminRoute />}>
+                        <Route element={<Layout />}>
+                          <Route path="admin/style-guide" element={<StyleGuide />} />
+                        </Route>
+                      </Route>
                     </Route>
                   </Routes>
                   </OrasProvider>
@@ -76,6 +86,7 @@ function App() {
             </SpotifyProvider>
           </ToastProvider>
         </AppearanceProvider>
+        </StyleProvider>
       </DevAccessProvider>
     </AuthProvider>
   );

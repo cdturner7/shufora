@@ -20,6 +20,7 @@ interface SpotifyContextValue {
   deviceId: string | null;
   user: SpotifyUser | null;
   playerState: SpotifySDKState | null;
+  playlists: SpotifyPlaylist[];
   connect: () => Promise<void>;
   disconnect: () => void;
   handleCallback: (code: string) => Promise<void>;
@@ -48,33 +49,70 @@ export function SpotifyProvider({ children }: { children: ReactNode }) {
   const authUidRef = useRef<string | null>(null);
   authUidRef.current = authUser?.uid ?? null;
 
-  const [tokens, setTokens] = useState<SpotifyTokens | null>(() => loadSpotifyTokens());
+  // Always start null — tokens are loaded after auth resolves so they're always for the right user
+  const [tokens, setTokens] = useState<SpotifyTokens | null>(null);
   const [user, setUser] = useState<SpotifyUser | null>(null);
+  const [playlists, setPlaylists] = useState<SpotifyPlaylist[]>([]);
   const [isReady, setIsReady] = useState(false);
-  // True while we're checking Firestore for a persisted connection (no localStorage tokens yet)
-  const [isLoading, setIsLoading] = useState(() => loadSpotifyTokens() === null);
+  const [isLoading, setIsLoading] = useState(true);
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [playerState, setPlayerState] = useState<SpotifySDKState | null>(null);
   const playerRef = useRef<SpotifySDKPlayer | null>(null);
+  const playlistsPromiseRef = useRef<Promise<SpotifyPlaylist[]> | null>(null);
+  const refreshPromiseRef = useRef<Promise<string | null> | null>(null);
   const tokensRef = useRef(tokens);
   tokensRef.current = tokens;
   // Keeps the last known device ID so play() never silently no-ops due to a
   // transient not_ready event clearing the deviceId state.
   const deviceIdRef = useRef<string | null>(null);
+  // Track which user's tokens are currently loaded to detect user switches
+  const loadedForUidRef = useRef<string | null>(null);
 
-  // Load from Firestore when user logs in with no localStorage tokens (new device / cleared storage)
+  // Load tokens after auth resolves; clear when user logs out or switches accounts
   useEffect(() => {
-    if (authLoading) return; // wait for Firebase Auth to resolve before giving up
+    if (authLoading) return;
+
     if (!authUser?.uid) {
+      // Logged out — wipe token cache so the next user starts clean
+      clearSpotifyTokens();
+      setTokens(null);
+      tokensRef.current = null;
+      playlistsPromiseRef.current = null;
+      refreshPromiseRef.current = null;
+      loadedForUidRef.current = null;
       setIsLoading(false);
       return;
     }
+
+    const uid = authUser.uid;
+
+    // A different user logged in — discard the previous user's cached tokens
+    if (loadedForUidRef.current !== null && loadedForUidRef.current !== uid) {
+      clearSpotifyTokens();
+      setTokens(null);
+      tokensRef.current = null;
+      playlistsPromiseRef.current = null;
+      refreshPromiseRef.current = null;
+    }
+    loadedForUidRef.current = uid;
+
     if (tokensRef.current) {
       setIsLoading(false);
       return;
     }
+
+    // Try localStorage cache first (instant, no network)
+    const cached = loadSpotifyTokens();
+    if (cached) {
+      setTokens(cached);
+      tokensRef.current = cached;
+      setIsLoading(false);
+      return;
+    }
+
+    // Fall through to Firestore (cross-device / cleared localStorage)
     setIsLoading(true);
-    loadSpotifyTokensForUser(authUser.uid)
+    loadSpotifyTokensForUser(uid)
       .then(firestoreTokens => {
         if (firestoreTokens && !tokensRef.current) {
           saveSpotifyTokens(firestoreTokens);
@@ -99,25 +137,45 @@ export function SpotifyProvider({ children }: { children: ReactNode }) {
   // ── Token management ────────────────────────────────────────────────────────
 
   const getToken = useCallback(async (): Promise<string | null> => {
-    let t = tokensRef.current;
+    const t = tokensRef.current;
     if (!t) return null;
-    if (isTokenExpired(t)) {
-      try {
-        t = await doRefreshToken(t.refreshToken, CLIENT_ID);
-        saveSpotifyTokens(t);
-        setTokens(t);
-        tokensRef.current = t;
-        // Firestore save is handled by the [tokens, authUser?.uid] effect
-      } catch {
-        clearSpotifyTokens();
-        setTokens(null);
-        if (authUidRef.current) {
-          clearSpotifyTokensForUser(authUidRef.current).catch(() => {});
-        }
-        return null;
-      }
+    if (!isTokenExpired(t)) return t.accessToken;
+
+    // Deduplicate concurrent refresh calls — only one flight at a time.
+    if (!refreshPromiseRef.current) {
+      refreshPromiseRef.current = doRefreshToken(t.refreshToken, CLIENT_ID)
+        .then(fresh => {
+          saveSpotifyTokens(fresh);
+          setTokens(fresh);
+          tokensRef.current = fresh;
+          // Save the rotated refresh token to Firestore immediately — don't rely
+          // solely on the [tokens] effect, which can be skipped when authUser
+          // briefly re-initialises (causing Firestore to keep a stale, invalid RT).
+          if (authUidRef.current) {
+            saveSpotifyTokensForUser(authUidRef.current, fresh).catch(() => {});
+          }
+          return fresh.accessToken;
+        })
+        .catch((e: unknown) => {
+          // Only disconnect for definitive 4xx rejections (revoked / rotated-away
+          // refresh token). Transient failures (network down, 5xx) leave the
+          // existing tokens in place so the next getToken() call can retry —
+          // clearing on a transient error would permanently strand the user.
+          const isPermanent = e instanceof Error && /Token refresh failed: 4\d\d/.test(e.message);
+          if (isPermanent) {
+            clearSpotifyTokens();
+            setTokens(null);
+            tokensRef.current = null;
+            if (authUidRef.current) {
+              clearSpotifyTokensForUser(authUidRef.current).catch(() => {});
+            }
+          }
+          return null;
+        })
+        .finally(() => { refreshPromiseRef.current = null; });
     }
-    return t.accessToken;
+
+    return refreshPromiseRef.current;
   }, []);
 
   // ── OAuth ────────────────────────────────────────────────────────────────────
@@ -132,8 +190,11 @@ export function SpotifyProvider({ children }: { children: ReactNode }) {
     const t = await exchangeCode(code, CLIENT_ID);
     saveSpotifyTokens(t);
     setTokens(t);
-    // Firestore save is handled by the [tokens, authUser?.uid] effect,
-    // which fires once auth resolves — even if that's after this callback returns.
+    // Save directly when uid is already available; the [tokens, authUser?.uid]
+    // effect covers the case where Firebase Auth hasn't resolved yet.
+    if (authUidRef.current) {
+      saveSpotifyTokensForUser(authUidRef.current, t).catch(() => {});
+    }
   }, []);
 
   const disconnect = useCallback(() => {
@@ -142,6 +203,9 @@ export function SpotifyProvider({ children }: { children: ReactNode }) {
     clearSpotifyTokens();
     setTokens(null);
     setUser(null);
+    setPlaylists([]);
+    playlistsPromiseRef.current = null;
+    refreshPromiseRef.current = null;
     setIsReady(false);
     setDeviceId(null);
     setPlayerState(null);
@@ -179,7 +243,8 @@ export function SpotifyProvider({ children }: { children: ReactNode }) {
         deviceIdRef.current = device_id;
         setDeviceId(device_id);
         setIsReady(true);
-        transferPlayback(tokensRef.current!.accessToken, device_id).catch(() => {});
+        // Use getToken() so an expired access token is refreshed before the transfer call.
+        getToken().then(token => { if (token) transferPlayback(token, device_id).catch(() => {}); });
       });
 
       player.addListener('not_ready', () => {
@@ -252,9 +317,13 @@ export function SpotifyProvider({ children }: { children: ReactNode }) {
   // ── Library ──────────────────────────────────────────────────────────────────
 
   const getPlaylists = useCallback(async () => {
-    const token = await getToken();
-    if (!token) return [];
-    return getSpotifyPlaylists(token);
+    if (!playlistsPromiseRef.current) {
+      playlistsPromiseRef.current = getToken()
+        .then(token => (token ? getSpotifyPlaylists(token) : []))
+        .then(result => { setPlaylists(result); return result; })
+        .catch(() => { playlistsPromiseRef.current = null; return [] as SpotifyPlaylist[]; });
+    }
+    return playlistsPromiseRef.current;
   }, [getToken]);
 
   const getPlaylistTracksFn = useCallback(async (id: string) => {
@@ -277,7 +346,7 @@ export function SpotifyProvider({ children }: { children: ReactNode }) {
 
   return (
     <SpotifyContext.Provider value={{
-      isConnected, isReady, isLoading, deviceId, user, playerState,
+      isConnected, isReady, isLoading, deviceId, user, playerState, playlists,
       connect, disconnect, handleCallback, getToken,
       play, pause, resume, seek, next, previous, setVolume,
       getPlaylists, getPlaylistTracks: getPlaylistTracksFn,

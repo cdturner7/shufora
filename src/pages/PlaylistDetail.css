@@ -88,9 +88,16 @@
   color: var(--color-text-muted);
 }
 
-.playlist-detail-play-all {
-  align-self: flex-start;
+.playlist-detail-actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
   margin-top: 0.5rem;
+}
+
+.playlist-detail-play-all,
+.playlist-detail-queue-all {
+  align-self: flex-start;
 }
 
 /* ── Loading / empty ─────────────────────────────────────────────────────── */
@@ -147,7 +154,7 @@
 
 .pd-track-row {
   display: grid;
-  grid-template-columns: 36px 36px 1fr auto;
+  grid-template-columns: 36px 36px 1fr auto auto;
   align-items: center;
   gap: 0.75rem;
   padding: 0.4rem 1rem 0.4rem 0.75rem;
@@ -238,6 +245,23 @@
   display: flex;
   align-items: center;
 }
+
+.pd-queue-btn {
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+
+.pd-track-row:hover .pd-queue-btn { opacity: 1; }
+.pd-queue-btn:hover { color: var(--color-accent); }
 
 /* ── Mobile ──────────────────────────────────────────────────────────────── */
 

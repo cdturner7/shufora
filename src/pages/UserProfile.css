@@ -1,0 +1,227 @@
+/* ── Profile page ────────────────────────────────────────────────────────── */
+
+.profile {
+  max-width: 620px;
+}
+
+/* Identity card */
+.profile-identity {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.profile-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--color-bg);
+  box-shadow: var(--shadow-neu-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  font-family: var(--font-display);
+  font-size: 1.85rem;
+  font-weight: 400;
+  color: var(--color-primary);
+  user-select: none;
+}
+
+.profile-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.profile-name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.profile-name {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 500;
+  color: var(--color-text);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profile-email {
+  font-size: 0.78rem;
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+}
+
+.profile-name-edit {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.profile-name-input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Icon buttons (edit / save / cancel) */
+.profile-icon-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  padding: 0.3rem;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: color 0.15s, background 0.15s;
+}
+
+.profile-icon-btn:hover { color: var(--color-primary); background: var(--color-primary-subtle); }
+.profile-icon-btn--cancel:hover { color: var(--color-danger); background: rgba(224, 96, 96, 0.1); }
+.profile-icon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.profile-field-error {
+  font-size: 0.75rem;
+  color: var(--color-danger);
+  width: 100%;
+}
+
+/* Section header row */
+.profile-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.profile-section-label {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--color-text-muted);
+}
+
+/* Password form */
+.profile-pw-form { display: flex; flex-direction: column; }
+
+.profile-pw-error {
+  font-size: 0.82rem;
+  color: var(--color-danger);
+  background: rgba(224, 96, 96, 0.1);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-neu-inset-sm);
+  padding: 0.6rem 0.9rem;
+  margin: 0 0 0.75rem;
+}
+
+.profile-pw-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  margin-top: 0.25rem;
+}
+
+.profile-success {
+  margin: -0.5rem 0 0;
+  font-size: 0.82rem;
+  color: var(--color-success);
+}
+
+/* Linked accounts grid */
+.profile-accounts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.85rem;
+}
+
+@media (max-width: 480px) {
+  .profile-accounts { grid-template-columns: 1fr; }
+}
+
+.profile-account {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius);
+  background: var(--color-bg);
+  box-shadow: var(--shadow-neu-inset-sm);
+  transition: box-shadow 0.2s;
+}
+
+.profile-account--connected {
+  box-shadow: var(--shadow-neu-inset-sm), 0 0 0 1px var(--color-border);
+}
+
+.profile-account-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.profile-account-logo svg { width: 18px; height: 18px; }
+
+.profile-account-logo--spotify    { background: #1DB954; }
+.profile-account-logo--soundcloud { background: #FF5500; }
+
+.profile-account-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.profile-account-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text);
+  line-height: 1.3;
+}
+
+.profile-account-sub {
+  font-size: 0.72rem;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profile-account-sub--dim { color: var(--color-text-muted); }
+
+/* Mobile: stack identity card */
+@media (max-width: 540px) {
+  .profile-identity {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .profile-name-row  { justify-content: center; }
+  .profile-email     { text-align: center; }
+  .profile-name-edit { justify-content: center; }
+}

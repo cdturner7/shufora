@@ -56,7 +56,7 @@
 
 /* ── Board layout ────────────────────────────────────────────────────────── */
 
-.home-board-page { max-width: 1200px; }
+.home-board-page { max-width: 1200px; min-width: 75%; }
 
 .board-layout {
   display: flex;
@@ -179,7 +179,7 @@
 
 .bps {
   display: flex;
-  height: 360px;
+  min-height: 240px;
   background: var(--color-surface);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-neu-sm);
@@ -207,9 +207,9 @@
 }
 
 .bps-left .bp-art {
-  flex: 1;
-  min-height: 0;
-  aspect-ratio: unset;
+  flex: 0 0 auto;
+  width: 100%;
+  aspect-ratio: 1;
 }
 
 
@@ -242,6 +242,15 @@
 }
 
 
+.bps-queue-more {
+  text-align: center;
+  padding: 0.6rem 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--color-text-muted);
+  letter-spacing: 0.04em;
+}
+
 .bps-queue-empty {
   margin: 0;
   padding: 2.5rem 1.5rem;
@@ -254,6 +263,7 @@
 .bps-queue-list {
   flex: 1;
   overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 .bps-queue-row {
@@ -357,6 +367,69 @@
   color: var(--color-danger);
 }
 
+/* ── Queue skeleton ──────────────────────────────────────────────────────── */
+
+@keyframes bps-shimmer {
+  from { background-position: -400px 0; }
+  to   { background-position:  400px 0; }
+}
+
+.bps-skeleton {
+  padding: 0.35rem 0;
+}
+
+.bps-skeleton-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.45rem 0.75rem;
+}
+
+.bps-skel {
+  border-radius: 4px;
+  background: linear-gradient(
+    90deg,
+    var(--color-bg) 25%,
+    var(--color-surface-hover) 50%,
+    var(--color-bg) 75%
+  );
+  background-size: 400px 100%;
+  animation: bps-shimmer 1.5s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+.bps-skel--art {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+}
+
+.bps-skel--title {
+  height: 9px;
+  width: 54%;
+  border-radius: 4px;
+  margin-bottom: 5px;
+}
+
+.bps-skel--meta {
+  height: 7px;
+  width: 34%;
+  border-radius: 4px;
+}
+
+.bps-skeleton-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.bps-skeleton-row:nth-child(2) .bps-skel { animation-delay: 0.08s; }
+.bps-skeleton-row:nth-child(3) .bps-skel { animation-delay: 0.16s; }
+.bps-skeleton-row:nth-child(4) .bps-skel { animation-delay: 0.24s; }
+.bps-skeleton-row:nth-child(5) .bps-skel { animation-delay: 0.32s; }
+.bps-skeleton-row:nth-child(6) .bps-skel { animation-delay: 0.40s; }
+
 /* ── Shuffle button in queue header (visible on mobile) ──────────────────── */
 
 .bps-queue-count {
@@ -396,7 +469,33 @@
 
 /* ── Mobile ──────────────────────────────────────────────────────────────── */
 
+@media (min-width: 768px) {
+  .home-board-page {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .board-layout {
+    flex: 1;
+    min-height: 0;
+    align-items: stretch;
+  }
+
+  .board-main {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .bps {
+    flex: 1;
+    min-height: 0;
+  }
+}
+
 @media (max-width: 900px) {
+  .home-board-page { min-width: 85%; }
   .board-layout { flex-direction: column; align-items: stretch; }
 }
 

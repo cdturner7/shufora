@@ -6,12 +6,14 @@ import { auth, functions } from '../lib/firebase';
 interface DevAccessContextValue {
   isDev: boolean;
   devMode: boolean;
+  devLoading: boolean;
   setDevMode: (on: boolean) => void;
 }
 
 const DevAccessContext = createContext<DevAccessContextValue>({
   isDev: false,
   devMode: false,
+  devLoading: true,
   setDevMode: () => {},
 });
 
@@ -38,11 +40,14 @@ export function DevAccessProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [isDev, setIsDev] = useState(false);
   const [devMode, setDevModeState] = useState(false);
+  const [devLoading, setDevLoading] = useState(true);
 
   useEffect(() => {
+    setDevLoading(true);
     if (!user) {
       setIsDev(false);
       setDevModeState(false);
+      setDevLoading(false);
       return;
     }
 
@@ -54,6 +59,7 @@ export function DevAccessProvider({ children }: { children: ReactNode }) {
       const stored = localStorage.getItem(lsModeKey(uid));
       setDevModeState(stored === null ? true : stored === 'true');
     }
+    setDevLoading(false);
 
     if (!functions) return;
     httpsCallable(functions, 'getDevAccess')({})
@@ -83,7 +89,7 @@ export function DevAccessProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <DevAccessContext.Provider value={{ isDev, devMode, setDevMode }}>
+    <DevAccessContext.Provider value={{ isDev, devMode, devLoading, setDevMode }}>
       {children}
     </DevAccessContext.Provider>
   );
