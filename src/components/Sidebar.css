@@ -12,7 +12,7 @@
   flex-shrink: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  z-index: 10;
+  z-index: 250;
   transition: width 0.25s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -57,7 +57,7 @@
 
 .sidebar-title {
   margin: 0;
-  font-family: var(--font-display);
+  font-family: var(--font-brand);
   font-size: 1.9rem;
   font-weight: 400;
   letter-spacing: 0.14em;

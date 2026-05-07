@@ -48,12 +48,6 @@
   margin-bottom: 1.25rem;
 }
 
-.board-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
 /* ── Board layout ────────────────────────────────────────────────────────── */
 
 .home-board-page { max-width: 1200px; min-width: 75%; }
@@ -75,11 +69,21 @@
 /* ── Ora grid ────────────────────────────────────────────────────────────── */
 
 .ora-board {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: visible;
+  scrollbar-width: thin;
   gap: 0.85rem;
-  padding: 10px;
-  margin: -10px;
+  padding: 10px 10px 18px;
+  margin: -10px -10px -18px;
+  flex-shrink: 0;
+}
+
+.ora-card {
+  flex: 0 0 140px;
+  width: 140px;
 }
 
 /* ── Ora card ────────────────────────────────────────────────────────────── */
@@ -174,6 +178,7 @@
 
 .ora-card:hover .ora-card-remove { opacity: 1; }
 .ora-card-remove:hover { background: rgba(224, 96, 96, 0.85); color: #fff; }
+
 
 /* ── Board player section ────────────────────────────────────────────────── */
 
@@ -464,8 +469,15 @@
   flex-shrink: 0;
 }
 
-.bps-shuffle-btn:hover  { color: var(--color-text); box-shadow: var(--shadow-neu-xs); }
-.bps-shuffle-btn:active { box-shadow: var(--shadow-neu-inset-sm); transform: scale(0.95); }
+.bps-shuffle-btn:hover { color: var(--color-text); box-shadow: var(--shadow-neu-xs); }
+.bps-shuffle-btn:active { transform: scale(0.95); }
+
+.bps-shuffle-btn--active {
+  color: var(--color-primary);
+  box-shadow: var(--shadow-neu-inset-sm);
+}
+
+.bps-shuffle-btn--active:hover { color: var(--color-primary-light); box-shadow: var(--shadow-neu-inset-sm); }
 
 /* ── Mobile ──────────────────────────────────────────────────────────────── */
 
@@ -500,7 +512,8 @@
 }
 
 @media (max-width: 767px) {
-  .ora-board { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 0.65rem; padding: 10px; margin: -10px; }
+  .ora-board { gap: 0.65rem; padding: 8px 8px 16px; margin: -8px -8px -16px; }
+  .ora-card  { flex: 0 0 110px; width: 110px; }
   .ora-card-remove { opacity: 1; }
 
   /* Flex chain: home-board-page → board-layout → board-main → bps → bps-right
@@ -545,6 +558,10 @@
     min-height: 0;
     max-height: none;
     overflow-y: auto;
+  }
+
+  .bps {
+    margin-bottom: 1.25rem;
   }
 
   /* Always show remove button and drag handle on touch screens */

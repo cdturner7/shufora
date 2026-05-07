@@ -5,10 +5,16 @@ import { useSpotify } from '../context/SpotifyContext';
 import { useSoundCloud } from '../context/SoundCloudContext';
 import { usePlayer, trackFromSpotify, trackFromSoundCloud, type Track } from '../context/PlayerContext';
 import type { SoundCloudPlaylist } from '../lib/soundcloud';
+import type { SpotifyAlbum, SpotifyArtist } from '../lib/spotify';
 import './Library.css';
 
 function navState(title: string, accent: string, artwork?: string, description?: string) {
   return { title, accent, artwork, description };
+}
+
+function fmt(ms: number) {
+  const s = Math.floor(ms / 1000);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
 type Tab = 'spotify' | 'soundcloud';
@@ -21,9 +27,19 @@ function Library() {
 
   const [tab, setTab] = useState<Tab>(spotify.isConnected ? 'spotify' : 'soundcloud');
   const [loading, setLoading] = useState(false);
+  const [recentTracks, setRecentTracks] = useState<Track[]>([]);
+  const [savedAlbums, setSavedAlbums] = useState<SpotifyAlbum[]>([]);
+  const [followedArtists, setFollowedArtists] = useState<SpotifyArtist[]>([]);
 
   useEffect(() => {
     if (spotify.isConnected) spotify.getPlaylists();
+  }, [spotify.isConnected]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!spotify.isConnected) return;
+    spotify.getRecentTracks().then(tracks => setRecentTracks(tracks.map(trackFromSpotify))).catch(() => {});
+    spotify.getSavedAlbums().then(setSavedAlbums).catch(() => {});
+    spotify.getFollowedArtists().then(setFollowedArtists).catch(() => {});
   }, [spotify.isConnected]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -91,7 +107,7 @@ function Library() {
   if (!spotify.isConnected && !sc.isConnected) {
     return (
       <div className="page">
-          <div className="library-empty">
+        <div className="library-empty">
           <Music size={52} strokeWidth={1} />
           <p>Connect a music account to get started.</p>
           <button className="btn" onClick={() => navigate('/settings')}>Go to Settings</button>
@@ -102,7 +118,6 @@ function Library() {
 
   return (
     <div className="page">
-
       {spotify.isConnected && sc.isConnected && (
         <div className="library-tabs">
           <button className={`library-tab${tab === 'spotify' ? ' active' : ''}`} onClick={() => setTab('spotify')}>
@@ -115,66 +130,194 @@ function Library() {
       )}
 
       {tab === 'spotify' && spotify.isConnected && (
-        <div className="library-list">
-          <PlaylistRow
-            title="Liked Songs"
-            subtitle="Your saved tracks"
-            icon={<Heart size={22} strokeWidth={1.5} />}
-            accent="#1DB954"
-            onPlay={playSpotifyLikes}
-            onQueue={queueSpotifyLikes}
-            onNavigate={() => navigate('/playlist/spotify/liked', { state: navState('Liked Songs', '#1DB954') })}
-            disabled={loading}
-          />
-          {spotify.playlists.map(pl => (
-            <PlaylistRow
-              key={pl.id}
-              title={pl.name}
-              subtitle={`${pl.tracks.total} tracks`}
-              artwork={pl.images[0]?.url}
-              accent="#1DB954"
-              onPlay={() => playSpotifyPlaylist(pl.id)}
-              onQueue={() => queueSpotifyPlaylist(pl.id)}
-              onNavigate={() => navigate(`/playlist/spotify/${pl.id}`, {
-                state: navState(pl.name, '#1DB954', pl.images[0]?.url, pl.description),
-              })}
-              disabled={loading}
-            />
-          ))}
+        <div className="lib-content">
+          <LibSection label="Playlists">
+            <div className="library-list">
+              <PlaylistRow
+                title="Liked Songs"
+                subtitle="Your saved tracks"
+                icon={<Heart size={22} strokeWidth={1.5} />}
+                accent="#1DB954"
+                onPlay={playSpotifyLikes}
+                onQueue={queueSpotifyLikes}
+                onNavigate={() => navigate('/playlist/spotify/liked', { state: navState('Liked Songs', '#1DB954') })}
+                disabled={loading}
+              />
+              {spotify.playlists.map(pl => (
+                <PlaylistRow
+                  key={pl.id}
+                  title={pl.name}
+                  subtitle={`${pl.tracks.total} tracks`}
+                  artwork={pl.images[0]?.url}
+                  accent="#1DB954"
+                  onPlay={() => playSpotifyPlaylist(pl.id)}
+                  onQueue={() => queueSpotifyPlaylist(pl.id)}
+                  onNavigate={() => navigate(`/playlist/spotify/${pl.id}`, {
+                    state: navState(pl.name, '#1DB954', pl.images[0]?.url, pl.description),
+                  })}
+                  disabled={loading}
+                />
+              ))}
+            </div>
+          </LibSection>
+
+          {recentTracks.length > 0 && (
+            <LibSection label="Recent Songs">
+              <div className="lib-track-list">
+                {recentTracks.slice(0, 10).map((track, i) => (
+                  <TrackRow
+                    key={`${track.id}:${i}`}
+                    track={track}
+                    onPlay={() => player.play(track, recentTracks, i)}
+                    onQueue={() => player.appendToQueue([track])}
+                    isActive={player.currentTrack?.id === track.id}
+                  />
+                ))}
+              </div>
+            </LibSection>
+          )}
+
+          {savedAlbums.length > 0 && (
+            <LibSection label="Albums">
+              <div className="lib-scroll-row">
+                {savedAlbums.map(album => (
+                  <AlbumCard
+                    key={album.id}
+                    album={album}
+                    onPlay={() => playQueue(async () => {
+                      const tracks = await spotify.getAlbumTracks(album.id, album);
+                      return tracks.map(trackFromSpotify);
+                    })}
+                  />
+                ))}
+              </div>
+            </LibSection>
+          )}
+
+          {followedArtists.length > 0 && (
+            <LibSection label="Following">
+              <div className="lib-scroll-row">
+                {followedArtists.map(artist => (
+                  <ArtistCard key={artist.id} artist={artist} />
+                ))}
+              </div>
+            </LibSection>
+          )}
         </div>
       )}
 
       {tab === 'soundcloud' && sc.isConnected && (
-        <div className="library-list">
-          <PlaylistRow
-            title="Liked Tracks"
-            subtitle="Your liked tracks"
-            icon={<Heart size={22} strokeWidth={1.5} />}
-            accent="#FF5500"
-            onPlay={playScLikes}
-            onQueue={queueScLikes}
-            onNavigate={() => navigate('/playlist/soundcloud/liked', { state: navState('Liked Tracks', '#FF5500') })}
-            disabled={loading}
-          />
-          {sc.playlists.map(pl => (
-            <PlaylistRow
-              key={pl.id}
-              title={pl.title}
-              subtitle={`${pl.track_count} tracks`}
-              artwork={pl.artwork_url ?? undefined}
-              accent="#FF5500"
-              onPlay={() => playScPlaylist(pl)}
-              onQueue={() => queueScPlaylist(pl)}
-              onNavigate={() => navigate(`/playlist/soundcloud/${pl.id}`, {
-                state: navState(pl.title, '#FF5500', pl.artwork_url ?? undefined),
-              })}
-              disabled={loading}
-            />
-          ))}
+        <div className="lib-content">
+          <LibSection label="Playlists">
+            <div className="library-list">
+              <PlaylistRow
+                title="Liked Tracks"
+                subtitle="Your liked tracks"
+                icon={<Heart size={22} strokeWidth={1.5} />}
+                accent="#FF5500"
+                onPlay={playScLikes}
+                onQueue={queueScLikes}
+                onNavigate={() => navigate('/playlist/soundcloud/liked', { state: navState('Liked Tracks', '#FF5500') })}
+                disabled={loading}
+              />
+              {sc.playlists.map(pl => (
+                <PlaylistRow
+                  key={pl.id}
+                  title={pl.title}
+                  subtitle={`${pl.track_count} tracks`}
+                  artwork={pl.artwork_url ?? undefined}
+                  accent="#FF5500"
+                  onPlay={() => playScPlaylist(pl)}
+                  onQueue={() => queueScPlaylist(pl)}
+                  onNavigate={() => navigate(`/playlist/soundcloud/${pl.id}`, {
+                    state: navState(pl.title, '#FF5500', pl.artwork_url ?? undefined),
+                  })}
+                  disabled={loading}
+                />
+              ))}
+            </div>
+          </LibSection>
         </div>
       )}
 
       {loading && <p className="library-loading">Loading…</p>}
+    </div>
+  );
+}
+
+function LibSection({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="lib-section">
+      <p className="lib-section-title">{label}</p>
+      {children}
+    </div>
+  );
+}
+
+function TrackRow({ track, onPlay, onQueue, isActive }: {
+  track: Track;
+  onPlay: () => void;
+  onQueue: () => void;
+  isActive: boolean;
+}) {
+  return (
+    <div
+      className={`lib-track-row${isActive ? ' lib-track-row--active' : ''}`}
+      onClick={onPlay}
+      role="button"
+      tabIndex={0}
+      onKeyDown={e => e.key === 'Enter' && onPlay()}
+    >
+      <div className="lib-track-art">
+        {track.artwork
+          ? <img src={track.artwork} alt={track.title} />
+          : <Music size={14} strokeWidth={1.5} />}
+      </div>
+      <div className="lib-track-info">
+        <span className="lib-track-title">{track.title}</span>
+        <span className="lib-track-artist">{track.artist}</span>
+      </div>
+      <span className="lib-track-dur">{fmt(track.duration)}</span>
+      <button
+        className="lib-track-queue"
+        onClick={e => { e.stopPropagation(); onQueue(); }}
+        title="Add to queue"
+        type="button"
+      >
+        <ListPlus size={15} strokeWidth={1.75} />
+      </button>
+    </div>
+  );
+}
+
+function AlbumCard({ album, onPlay }: { album: SpotifyAlbum; onPlay: () => void }) {
+  return (
+    <div className="lib-card" onClick={onPlay}>
+      <div className="lib-card-art">
+        {album.images[0]?.url
+          ? <img src={album.images[0].url} alt={album.name} />
+          : <div className="lib-card-art-ph"><Music size={24} strokeWidth={1} /></div>}
+      </div>
+      <div className="lib-card-info">
+        <span className="lib-card-name">{album.name}</span>
+        <span className="lib-card-sub">{album.artists.map(a => a.name).join(', ')}</span>
+      </div>
+    </div>
+  );
+}
+
+function ArtistCard({ artist }: { artist: SpotifyArtist }) {
+  return (
+    <div className="lib-card lib-card--artist">
+      <div className="lib-card-art lib-card-art--circle">
+        {artist.images[0]?.url
+          ? <img src={artist.images[0].url} alt={artist.name} />
+          : <div className="lib-card-art-ph"><Music size={24} strokeWidth={1} /></div>}
+      </div>
+      <div className="lib-card-info">
+        <span className="lib-card-name">{artist.name}</span>
+        {artist.genres[0] && <span className="lib-card-sub">{artist.genres[0]}</span>}
+      </div>
     </div>
   );
 }

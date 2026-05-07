@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Music, Play, Pause, Clock, ListPlus } from 'lucide-react';
+import { ArrowLeft, Music, Play, Pause, Clock, LayoutGrid, Check, MoreVertical, SkipForward, Shuffle } from 'lucide-react';
 import { useSpotify } from '../context/SpotifyContext';
 import { useSoundCloud } from '../context/SoundCloudContext';
 import { usePlayer, trackFromSpotify, trackFromSoundCloud, type Track } from '../context/PlayerContext';
+import { useOras } from '../context/OrasContext';
 import './PlaylistDetail.css';
 
 interface PlaylistMeta {
@@ -25,6 +26,16 @@ function PlaylistDetail() {
   const spotify = useSpotify();
   const sc = useSoundCloud();
   const player = usePlayer();
+  const { insertNextInQueue } = player;
+  const { addOra, isOra, addPinnedTrack } = useOras();
+
+  type MenuPos = { trackIdx: number; top: number; right: number };
+  const [menuPos, setMenuPos] = useState<MenuPos | null>(null);
+
+  useEffect(() => {
+    document.body.style.overflow = menuPos ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [menuPos]);
 
   const meta = (location.state as PlaylistMeta | null) ?? { title: 'Playlist', accent: '#2CC295' };
 
@@ -117,13 +128,26 @@ function PlaylistDetail() {
                 ? <><Pause size={16} strokeWidth={2} /> Playing</>
                 : <><Play size={16} strokeWidth={2} /> Play All</>}
             </button>
-            <button
-              className="btn btn-secondary playlist-detail-queue-all"
-              onClick={() => player.appendToQueue(tracks)}
-              disabled={loading || tracks.length === 0}
-            >
-              <ListPlus size={16} strokeWidth={2} /> Add All
-            </button>
+            {(() => {
+              const onBoard = isOra(service as 'spotify' | 'soundcloud', id!);
+              return (
+                <button
+                  className="btn btn-secondary playlist-detail-queue-all"
+                  onClick={() => !onBoard && addOra({
+                    name: meta.title,
+                    artwork: meta.artwork,
+                    service: service as 'spotify' | 'soundcloud',
+                    sourceId: id!,
+                    trackCount: tracks.length,
+                  })}
+                  disabled={loading || onBoard}
+                >
+                  {onBoard
+                    ? <><Check size={16} strokeWidth={2} /> On Board</>
+                    : <><LayoutGrid size={16} strokeWidth={2} /> Add to Board</>}
+                </button>
+              );
+            })()}
           </div>
         </div>
       </div>
@@ -141,9 +165,9 @@ function PlaylistDetail() {
       )}
 
       {!loading && tracks.length > 0 && (
+        <>
         <div className="playlist-detail-tracks">
           <div className="playlist-detail-tracks-header">
-            <span className="pd-col-num">#</span>
             <span className="pd-col-title">Title</span>
             <span className="pd-col-dur"><Clock size={13} strokeWidth={1.75} /></span>
           </div>
@@ -160,15 +184,11 @@ function PlaylistDetail() {
                 tabIndex={0}
                 onKeyDown={e => e.key === 'Enter' && playFrom(i)}
               >
-                <span className="pd-col-num">
-                  {isActive && player.isPlaying
-                    ? <span className="pd-playing-dot" />
-                    : i + 1}
-                </span>
                 <div className="pd-track-art">
                   {track.artwork
                     ? <img src={track.artwork} alt={track.title} />
                     : <Music size={13} strokeWidth={1.5} />}
+                  {isActive && player.isPlaying && <span className="pd-playing-dot" />}
                 </div>
                 <div className="pd-track-info">
                   <span className="pd-track-title">{track.title}</span>
@@ -176,17 +196,57 @@ function PlaylistDetail() {
                 </div>
                 <span className="pd-col-dur">{fmt(track.duration)}</span>
                 <button
-                  className="pd-queue-btn"
-                  onClick={e => { e.stopPropagation(); player.appendToQueue([track]); }}
-                  title="Add to queue"
+                  className="pd-menu-btn"
+                  onClick={e => {
+                    e.stopPropagation();
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setMenuPos(menuPos?.trackIdx === i
+                      ? null
+                      : { trackIdx: i, top: rect.bottom + 4, right: window.innerWidth - rect.right });
+                  }}
+                  title="More options"
                   type="button"
                 >
-                  <ListPlus size={14} strokeWidth={1.75} />
+                  <MoreVertical size={14} strokeWidth={1.75} />
                 </button>
               </div>
             );
           })}
         </div>
+
+        {menuPos && (
+          <>
+            <div className="pd-menu-overlay" onClick={() => setMenuPos(null)} />
+            <div
+              className="pd-menu-dropdown"
+              style={{ top: menuPos.top, right: menuPos.right }}
+            >
+              <button
+                className="pd-menu-item"
+                onClick={() => {
+                  insertNextInQueue([tracks[menuPos.trackIdx]]);
+                  setMenuPos(null);
+                }}
+              >
+                <SkipForward size={14} strokeWidth={1.75} />
+                Play next
+              </button>
+              <button
+                className="pd-menu-item"
+                onClick={() => {
+                  const track = tracks[menuPos.trackIdx];
+                  addPinnedTrack(track);
+                  player.insertNextInQueue([track]);
+                  setMenuPos(null);
+                }}
+              >
+                <Shuffle size={14} strokeWidth={1.75} />
+                Add to board
+              </button>
+            </div>
+          </>
+        )}
+        </>
       )}
     </div>
   );

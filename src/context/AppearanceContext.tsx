@@ -1,9 +1,8 @@
-import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, useCallback, type ReactNode } from 'react';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from './AuthContext';
 
-export type Theme = 'dark' | 'light' | 'system';
 export type AccentColor = 'purple' | 'blue' | 'teal' | 'green' | 'amber' | 'rose';
 
 export interface Naming {
@@ -17,17 +16,13 @@ const SHUFORA_NAMING: Naming = {
 };
 
 interface AppearanceState {
-  theme: Theme;
   accentColor: AccentColor;
   customAccentHex?: string;
-  darkAccentHex?: string;
 }
 
 interface AppearanceContextValue extends AppearanceState {
-  setTheme: (t: Theme) => void;
   setAccentColor: (a: AccentColor) => void;
   setCustomAccentHex: (hex: string) => void;
-  setDarkAccentHex: (hex: string) => void;
   naming: Naming;
 }
 
@@ -35,7 +30,7 @@ const AppearanceContext = createContext<AppearanceContextValue | null>(null);
 
 const LS_KEY = 'shufora:appearance';
 
-const DEFAULTS: AppearanceState = { theme: 'system', accentColor: 'teal', customAccentHex: '#2CC295' };
+const DEFAULTS: AppearanceState = { accentColor: 'teal', customAccentHex: '#2CC295' };
 
 const ACCENT_PALETTE: Record<AccentColor, { primary: string; light: string; dim: string; glow: string; subtle: string }> = {
   amber:  { primary: '#C07C3A', light: '#D4944E', dim: '#A06830', glow: 'rgba(192,124,58,0.18)',  subtle: 'rgba(192,124,58,0.09)'  },
@@ -70,20 +65,8 @@ function deriveAccentPalette(hex: string) {
   };
 }
 
-function resolveTheme(theme: Theme): 'dark' | 'light' {
-  return theme === 'system'
-    ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-    : theme;
-}
-
-function applyTheme(theme: Theme) {
-  document.documentElement.setAttribute('data-theme', resolveTheme(theme));
-}
-
-function applyAccent(accent: AccentColor, lightHex?: string, darkHex?: string) {
-  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  const effectiveHex = isDark && darkHex ? darkHex : lightHex;
-  const p = effectiveHex ? deriveAccentPalette(effectiveHex) : ACCENT_PALETTE[accent];
+function applyAccent(accent: AccentColor, hex?: string) {
+  const p = hex ? deriveAccentPalette(hex) : ACCENT_PALETTE[accent];
   const el = document.documentElement;
   el.style.setProperty('--color-primary', p.primary);
   el.style.setProperty('--color-primary-light', p.light);
@@ -105,10 +88,21 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [state, setState] = useState<AppearanceState>(() => {
     const s = lsLoad();
-    applyTheme(s.theme);
-    applyAccent(s.accentColor, s.customAccentHex, s.darkAccentHex);
+    applyAccent(s.accentColor, s.customAccentHex);
     return s;
   });
+
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
+  const userRef = useRef(user);
+  userRef.current = user;
+
+  function persist(next: AppearanceState) {
+    localStorage.setItem(LS_KEY, JSON.stringify(next));
+    const u = userRef.current;
+    if (db && u) setDoc(doc(db, 'users', u.uid, 'data', 'appearance'), next);
+  }
 
   useEffect(() => {
     if (!db || !user) return;
@@ -116,74 +110,34 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
     const unsub = onSnapshot(ref, (snap) => {
       if (snap.exists()) {
         const remote = snap.data() as AppearanceState;
-        applyTheme(remote.theme);
-        applyAccent(remote.accentColor, remote.customAccentHex, remote.darkAccentHex);
+        applyAccent(remote.accentColor, remote.customAccentHex);
         setState(remote);
         localStorage.setItem(LS_KEY, JSON.stringify(remote));
       } else {
-        setDoc(ref, state);
+        setDoc(ref, stateRef.current);
       }
     });
     return unsub;
   }, [user?.uid]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    function onSystemChange() {
-      if (state.theme === 'system') {
-        applyTheme('system');
-        applyAccent(state.accentColor, state.customAccentHex, state.darkAccentHex);
-      }
-    }
-    mq.addEventListener('change', onSystemChange);
-    return () => mq.removeEventListener('change', onSystemChange);
-  }, [state.theme]);
-
-  function persist(next: AppearanceState) {
-    localStorage.setItem(LS_KEY, JSON.stringify(next));
-    if (db && user) setDoc(doc(db, 'users', user.uid, 'data', 'appearance'), next);
-  }
-
-  const setTheme = useCallback((theme: Theme) => {
-    setState((prev) => {
-      const next = { ...prev, theme };
-      applyTheme(theme);
-      // Re-apply accent so the dark/light hex swap takes effect immediately
-      applyAccent(next.accentColor, next.customAccentHex, next.darkAccentHex);
-      persist(next);
-      return next;
-    });
-  }, [user?.uid]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const setAccentColor = useCallback((accentColor: AccentColor) => {
-    setState((prev) => {
-      const next = { ...prev, accentColor, customAccentHex: undefined };
-      applyAccent(accentColor, undefined, next.darkAccentHex);
-      persist(next);
-      return next;
-    });
-  }, [user?.uid]); // eslint-disable-line react-hooks/exhaustive-deps
+    const prev = stateRef.current;
+    const next = { ...prev, accentColor, customAccentHex: undefined };
+    applyAccent(accentColor, undefined);
+    persist(next);
+    setState(next);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const setCustomAccentHex = useCallback((hex: string) => {
-    setState((prev) => {
-      const next = { ...prev, customAccentHex: hex };
-      applyAccent(prev.accentColor, hex, next.darkAccentHex);
-      persist(next);
-      return next;
-    });
-  }, [user?.uid]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const setDarkAccentHex = useCallback((hex: string) => {
-    setState((prev) => {
-      const next = { ...prev, darkAccentHex: hex };
-      applyAccent(prev.accentColor, prev.customAccentHex, hex);
-      persist(next);
-      return next;
-    });
-  }, [user?.uid]); // eslint-disable-line react-hooks/exhaustive-deps
+    const prev = stateRef.current;
+    const next = { ...prev, customAccentHex: hex };
+    applyAccent(prev.accentColor, hex);
+    persist(next);
+    setState(next);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <AppearanceContext.Provider value={{ ...state, setTheme, setAccentColor, setCustomAccentHex, setDarkAccentHex, naming: SHUFORA_NAMING }}>
+    <AppearanceContext.Provider value={{ ...state, setAccentColor, setCustomAccentHex, naming: SHUFORA_NAMING }}>
       {children}
     </AppearanceContext.Provider>
   );

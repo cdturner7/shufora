@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Music, Play, Shuffle, Plus, X, GripVertical } from 'lucide-react';
+import { Music, Shuffle, Plus, X, GripVertical } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useOras, type Ora } from '../context/OrasContext';
 import { usePlayer, trackFromSpotify, trackFromSoundCloud, type Track } from '../context/PlayerContext';
@@ -14,7 +14,6 @@ import './Home.css';
 
 interface BoardTrack extends Track {
   oraId: string;
-  oraName: string;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -25,6 +24,37 @@ function fmt(ms: number) {
 }
 
 // ── Ora card ───────────────────────────────────────────────────────────────
+
+function PinnedTrackCard({ track, onRemove }: { track: Track; onRemove: () => void }) {
+  return (
+    <div className="ora-card pinned-track-card">
+      <div className="ora-card-art">
+        {track.artwork
+          ? <img src={track.artwork} alt={track.title} />
+          : <div className="ora-card-art-ph"><Music size={24} strokeWidth={1} /></div>}
+        <span
+          className="ora-card-badge"
+          style={{
+            background: track.service === 'spotify' ? '#1DB95422' : '#FF550022',
+            color: track.service === 'spotify' ? '#1DB954' : '#FF5500',
+          }}
+        >
+          {track.service === 'spotify' ? 'SP' : 'SC'}
+        </span>
+      </div>
+      <div className="ora-card-info">
+        <span className="ora-card-name">{track.title}</span>
+        <span className="ora-card-count">{track.artist}</span>
+      </div>
+      <button
+        className="ora-card-remove"
+        onClick={e => { e.stopPropagation(); onRemove(); }}
+        type="button"
+        title="Remove from board"
+      >×</button>
+    </div>
+  );
+}
 
 function OraCard({ ora, onRemove, onNavigate }: { ora: Ora; onRemove: () => void; onNavigate: () => void }) {
   return (
@@ -60,16 +90,14 @@ function OraCard({ ora, onRemove, onNavigate }: { ora: Ora; onRemove: () => void
 
 function BoardPlayerSection({
   onShuffle,
-  onShuffleBoard,
   onLoadMore,
   isLoadingTracks,
 }: {
   onShuffle: () => void;
-  onShuffleBoard: () => void;
   onLoadMore: () => void;
   isLoadingTracks: boolean;
 }) {
-  const { currentTrack, queue, queueIndex, skipToIndex, removeFromQueue, reorderQueue } = usePlayer();
+  const { currentTrack, queue, queueIndex, skipToIndex, removeFromQueue, reorderQueue, shuffle, toggleShuffle } = usePlayer();
   const upNext = queue.slice(queueIndex + 1);
 
   const [visibleCount, setVisibleCount] = useState(30);
@@ -140,7 +168,12 @@ function BoardPlayerSection({
       <div className="bps-right">
         <div className="bps-queue-head">
           <span className="bps-queue-label">Up Next</span>
-          <button className="bps-shuffle-btn" type="button" onClick={onShuffleBoard} title="Shuffle Board">
+          <button
+            className={`bps-shuffle-btn${shuffle ? ' bps-shuffle-btn--active' : ''}`}
+            type="button"
+            onClick={toggleShuffle}
+            title={shuffle ? 'Shuffle on' : 'Shuffle off'}
+          >
             <Shuffle size={15} strokeWidth={2} />
           </button>
         </div>
@@ -228,7 +261,7 @@ function BoardPlayerSection({
 // ── Main ───────────────────────────────────────────────────────────────────
 
 function Home() {
-  const { oras, removeOra } = useOras();
+  const { oras, removeOra, pinnedTracks, removePinnedTrack } = useOras();
   const player = usePlayer();
   const { removeFromQueueWhere } = player;
   const spotify = useSpotify();
@@ -257,7 +290,14 @@ function Home() {
   const boardTracksRef = useRef<BoardTrack[]>([]);
   boardTracksRef.current = boardTracks;
 
+  const pinnedTracksRef = useRef<Track[]>(pinnedTracks);
+  pinnedTracksRef.current = pinnedTracks;
+
+  const playerRef = useRef(player);
+  playerRef.current = player;
+
   const oraIds = oras.map(o => o.id).join(',');
+  const pinnedIds = pinnedTracks.map(t => `${t.service}:${t.id}`).join(',');
   const autoQueuedRef = useRef(false);
 
   // Reset auto-queue flag whenever the ora set changes so a re-load always
@@ -265,8 +305,10 @@ function Home() {
   useEffect(() => { autoQueuedRef.current = false; }, [oraIds]);
 
   const loadTracks = useCallback(async (oraList: Ora[]) => {
+    const prevBoardIds = new Set(boardTracksRef.current.map(t => `${t.service}:${t.id}`));
+
     setBoardTracks([]);
-    if (oraList.length === 0) { setLoadingTracks(false); return; }
+    if (oraList.length === 0 && pinnedTracksRef.current.length === 0) { setLoadingTracks(false); return; }
     setLoadingTracks(true);
 
     let scPlaylistCache: SoundCloudPlaylist[] | null = null;
@@ -291,7 +333,7 @@ function Home() {
             if (pl) tracks = pl.tracks.map(t => trackFromSoundCloud(t, scRef.current.getStreamUrl(t), scRef.current.getArtwork(t)));
           }
         }
-        all.push(...tracks.map(t => ({ ...t, oraId: ora.id, oraName: ora.name, source: ora.name })));
+        all.push(...tracks.map(t => ({ ...t, oraId: ora.id, source: ora.name })));
       } catch { /* skip failed ora */ }
     }
 
@@ -303,13 +345,30 @@ function Home() {
       return true;
     });
 
+    const pinned: BoardTrack[] = pinnedTracksRef.current.map(t => ({
+      ...t, oraId: 'pinned', source: 'Pinned',
+    }));
+    for (const pt of pinned) {
+      const k = `${pt.service}:${pt.id}`;
+      if (!seen.has(k)) { seen.add(k); deduped.push(pt); }
+    }
+
     setBoardTracks(deduped);
     setLoadingTracks(false);
+
+    // If the board was already populated, immediately shuffle new tracks into the
+    // upcoming queue rather than waiting for the next auto-refill cycle.
+    if (prevBoardIds.size > 0) {
+      const newTracks = deduped.filter(t => !prevBoardIds.has(`${t.service}:${t.id}`));
+      if (newTracks.length > 0) {
+        playerRef.current.insertNextInQueue(newTracks as Track[]);
+      }
+    }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     loadTracks(oras);
-  }, [oraIds]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [oraIds, pinnedIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // When tracks finish loading (or a new ora is added), auto-populate the queue
   // if there are no upcoming tracks. Uses loadQueue when idle, appendToQueue when
@@ -347,34 +406,18 @@ function Home() {
     player.play(queue[0], queue, 0);
   }
 
-  function shuffleBoard() {
-    const tracks = boardTracksRef.current;
-    if (tracks.length === 0) return;
-    if (player.currentTrack) {
-      const cur = player.currentTrack;
-      const rest = (tracks as Track[]).filter(t => !(t.id === cur.id && t.service === cur.service));
-      player.loadQueue([cur, ...rest], 0);
-    } else {
-      player.loadQueue(tracks as Track[], 0);
-    }
-  }
-
-  const hasOras = oras.length > 0;
+  const hasItems = oras.length > 0 || pinnedTracks.length > 0;
 
   return (
     <div className="page home-board-page">
       <div className="board-page-header">
-        <button className="btn btn-primary btn-sm" type="button" onClick={playBoard} disabled={!hasOras || player.isPlaying}>
-          <Play size={13} strokeWidth={2.5} fill="currentColor" />
-          Play Board
-        </button>
         <button className="btn btn-secondary btn-sm" type="button" onClick={() => setModalOpen(true)}>
           <Plus size={14} strokeWidth={2.5} />
           Add Ora
         </button>
       </div>
 
-      {!hasOras ? (
+      {!hasItems ? (
         <div className="home-empty">
           <div className="home-empty-ring">
             <Music size={32} strokeWidth={1} />
@@ -397,10 +440,19 @@ function Home() {
                   onNavigate={() => navToOra(ora)}
                 />
               ))}
+              {pinnedTracks.map(track => (
+                <PinnedTrackCard
+                  key={`${track.service}:${track.id}`}
+                  track={track}
+                  onRemove={() => {
+                    removePinnedTrack(track.id, track.service);
+                    removeFromQueueWhere(t => t.id === track.id && t.service === track.service && t.oraId === 'pinned');
+                  }}
+                />
+              ))}
             </div>
             <BoardPlayerSection
               onShuffle={playBoard}
-              onShuffleBoard={shuffleBoard}
               onLoadMore={appendMoreToQueue}
               isLoadingTracks={loadingTracks}
             />

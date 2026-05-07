@@ -1,8 +1,14 @@
 /* ── Now Playing ─────────────────────────────────────────────────────────── */
 
+.np-root {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+}
+
 .np-screen {
-  min-height: 100dvh;
-  background: var(--color-bg);
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   align-items: center;

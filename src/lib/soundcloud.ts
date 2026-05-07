@@ -80,10 +80,6 @@ export function clearSCTokens() {
   localStorage.removeItem(LS_KEY);
 }
 
-export function isSCTokenExpired(t: SoundCloudTokens): boolean {
-  return Date.now() > t.expiresAt - 60_000;
-}
-
 // ── API fetch wrapper ─────────────────────────────────────────────────────────
 
 const API = 'https://api.soundcloud.com';

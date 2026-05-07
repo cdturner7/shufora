@@ -2,6 +2,7 @@ import { useRef, useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, SkipBack, SkipForward, Play, Pause, Music, AlignJustify } from 'lucide-react';
 import { usePlayer } from '../context/PlayerContext';
+import BottomNav from '../components/BottomNav';
 import './NowPlaying.css';
 
 function fmt(ms: number) {
@@ -35,6 +36,7 @@ function NowPlaying() {
   const upNext = queue.slice(queueIndex + 1);
 
   return (
+    <div className="np-root">
     <div className="np-screen">
 
       {/* Header */}
@@ -156,6 +158,8 @@ function NowPlaying() {
         </>
       )}
 
+    </div>
+    <BottomNav />
     </div>
   );
 }

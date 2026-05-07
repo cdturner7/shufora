@@ -121,6 +121,7 @@ interface PlayerContextValue {
   removeFromQueue: (absoluteIndex: number) => void;
   reorderQueue: (fromAbsolute: number, toAbsolute: number) => void;
   appendToQueue: (tracks: Track[]) => void;
+  insertNextInQueue: (tracks: Track[]) => void;
   removeFromQueueWhere: (predicate: (track: Track) => boolean) => void;
 }
 
@@ -461,7 +462,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         audio.src = currentTrackRef.current.streamUrl;
         audio.volume = volumeRef.current;
       }
-      await audio.play().catch(() => {});
+      await audio.play().catch(async () => {
+        // Play failed (expired stream URL, network error) — restart the track cleanly.
+        if (currentTrackRef.current) {
+          await playSingleRef.current?.(currentTrackRef.current);
+        }
+      });
     }
   }, [spotify, sc]);
 
@@ -557,6 +563,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setQueue(next);
   }, []);
 
+  const insertNextInQueue = useCallback((tracks: Track[]) => {
+    const insertAt = queueIndexRef.current + 1;
+    const next = [...queueRef.current];
+    next.splice(insertAt, 0, ...tracks);
+    queueRef.current = next;
+    setQueue(next);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Removes upcoming tracks (after current) matching predicate — history is untouched.
   // No Spotify resync — resyncing restarts the current track (audible stutter).
   const removeFromQueueWhere = useCallback((predicate: (track: Track) => boolean) => {
@@ -607,7 +621,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       currentTrack, queue, queueIndex, isPlaying, position, duration, volume,
       shuffle, repeat, toggleShuffle, cycleRepeat,
       play, loadQueue, pause, resume, togglePlay, next, previous, seek, setVolume,
-      skipToIndex, removeFromQueue, reorderQueue, appendToQueue, removeFromQueueWhere,
+      skipToIndex, removeFromQueue, reorderQueue, appendToQueue, insertNextInQueue, removeFromQueueWhere,
     }}>
       {children}
     </PlayerContext.Provider>

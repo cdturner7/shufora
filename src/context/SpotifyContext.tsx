@@ -5,8 +5,10 @@ import {
   buildAuthUrl, exchangeCode, doRefreshToken,
   saveSpotifyTokens, loadSpotifyTokens, clearSpotifyTokens, isTokenExpired,
   getSpotifyUser, getSpotifyPlaylists, getPlaylistTracks, getLikedTracks, searchSpotify,
+  getRecentlyPlayed, getSavedAlbums, getFollowedArtists, getAlbumTracks,
   playOnDevice, transferPlayback,
-  type SpotifyTokens, type SpotifyUser, type SpotifyPlaylist, type SpotifyTrack, type SpotifySDKPlayer, type SpotifySDKState,
+  type SpotifyTokens, type SpotifyUser, type SpotifyPlaylist, type SpotifyTrack,
+  type SpotifyAlbum, type SpotifyArtist, type SpotifySDKPlayer, type SpotifySDKState,
 } from '../lib/spotify';
 import {
   saveSpotifyTokensForUser, loadSpotifyTokensForUser, clearSpotifyTokensForUser,
@@ -38,6 +40,10 @@ interface SpotifyContextValue {
   getPlaylistTracks: (id: string) => Promise<SpotifyTrack[]>;
   getLikedTracks: () => Promise<SpotifyTrack[]>;
   search: (q: string) => Promise<SpotifyTrack[]>;
+  getRecentTracks: () => Promise<SpotifyTrack[]>;
+  getSavedAlbums: () => Promise<SpotifyAlbum[]>;
+  getFollowedArtists: () => Promise<SpotifyArtist[]>;
+  getAlbumTracks: (albumId: string, album: SpotifyAlbum) => Promise<SpotifyTrack[]>;
 }
 
 const SpotifyContext = createContext<SpotifyContextValue | null>(null);
@@ -65,6 +71,8 @@ export function SpotifyProvider({ children }: { children: ReactNode }) {
   // Keeps the last known device ID so play() never silently no-ops due to a
   // transient not_ready event clearing the deviceId state.
   const deviceIdRef = useRef<string | null>(null);
+  // Play request queued before the SDK device was ready — fired on next ready event.
+  const pendingPlayRef = useRef<{ uris: string[]; offsetIndex: number } | null>(null);
   // Track which user's tokens are currently loaded to detect user switches
   const loadedForUidRef = useRef<string | null>(null);
 
@@ -200,6 +208,7 @@ export function SpotifyProvider({ children }: { children: ReactNode }) {
   const disconnect = useCallback(() => {
     playerRef.current?.disconnect();
     playerRef.current = null;
+    pendingPlayRef.current = null;
     clearSpotifyTokens();
     setTokens(null);
     setUser(null);
@@ -243,8 +252,15 @@ export function SpotifyProvider({ children }: { children: ReactNode }) {
         deviceIdRef.current = device_id;
         setDeviceId(device_id);
         setIsReady(true);
-        // Use getToken() so an expired access token is refreshed before the transfer call.
-        getToken().then(token => { if (token) transferPlayback(token, device_id).catch(() => {}); });
+        getToken().then(token => {
+          if (!token) return;
+          transferPlayback(token, device_id).catch(() => {});
+          if (pendingPlayRef.current) {
+            const pending = pendingPlayRef.current;
+            pendingPlayRef.current = null;
+            playOnDevice(token, device_id, pending.uris, pending.offsetIndex).catch(() => {});
+          }
+        });
       });
 
       player.addListener('not_ready', () => {
@@ -285,8 +301,14 @@ export function SpotifyProvider({ children }: { children: ReactNode }) {
 
   const play = useCallback(async (uris: string[], offsetIndex = 0) => {
     const token = await getToken();
+    if (!token) return;
     const did = deviceIdRef.current;
-    if (!token || !did) return;
+    if (!did) {
+      // SDK not ready yet — store and fire when device becomes available.
+      pendingPlayRef.current = { uris, offsetIndex };
+      return;
+    }
+    pendingPlayRef.current = null;
     await playOnDevice(token, did, uris, offsetIndex);
   }, [getToken]);
 
@@ -344,6 +366,30 @@ export function SpotifyProvider({ children }: { children: ReactNode }) {
     return searchSpotify(q, token);
   }, [getToken]);
 
+  const getRecentTracksFn = useCallback(async () => {
+    const token = await getToken();
+    if (!token) return [];
+    return getRecentlyPlayed(token);
+  }, [getToken]);
+
+  const getSavedAlbumsFn = useCallback(async () => {
+    const token = await getToken();
+    if (!token) return [];
+    return getSavedAlbums(token);
+  }, [getToken]);
+
+  const getFollowedArtistsFn = useCallback(async () => {
+    const token = await getToken();
+    if (!token) return [];
+    return getFollowedArtists(token);
+  }, [getToken]);
+
+  const getAlbumTracksFn = useCallback(async (albumId: string, album: SpotifyAlbum) => {
+    const token = await getToken();
+    if (!token) return [];
+    return getAlbumTracks(albumId, album, token);
+  }, [getToken]);
+
   return (
     <SpotifyContext.Provider value={{
       isConnected, isReady, isLoading, deviceId, user, playerState, playlists,
@@ -351,6 +397,10 @@ export function SpotifyProvider({ children }: { children: ReactNode }) {
       play, pause, resume, seek, next, previous, setVolume,
       getPlaylists, getPlaylistTracks: getPlaylistTracksFn,
       getLikedTracks: getLikedTracksFn, search,
+      getRecentTracks: getRecentTracksFn,
+      getSavedAlbums: getSavedAlbumsFn,
+      getFollowedArtists: getFollowedArtistsFn,
+      getAlbumTracks: getAlbumTracksFn,
     }}>
       {children}
     </SpotifyContext.Provider>

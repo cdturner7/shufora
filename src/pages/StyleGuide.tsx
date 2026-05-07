@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { RotateCcw, Copy, Check } from 'lucide-react';
-import { useAppearance, type AccentColor } from '../context/AppearanceContext';
+import { useAppearance } from '../context/AppearanceContext';
 import { useStyle } from '../context/StyleContext';
 import './StyleGuide.css';
 
@@ -15,13 +15,14 @@ const BODY_FONTS = [
   { label: 'System',            value: '-apple-system, BlinkMacSystemFont, sans-serif',  google: null },
 ];
 
-const DISPLAY_FONTS = [
-  { label: 'Cormorant Garamond', value: "'Cormorant Garamond', Georgia, serif",  google: 'Cormorant+Garamond:wght@300;400;500;600' },
-  { label: 'Lora',               value: "'Lora', Georgia, serif",                google: 'Lora:wght@400;500;600' },
-  { label: 'Playfair Display',   value: "'Playfair Display', Georgia, serif",    google: 'Playfair+Display:wght@400;500;600' },
-  { label: 'DM Serif Display',   value: "'DM Serif Display', Georgia, serif",    google: 'DM+Serif+Display' },
-  { label: 'Outfit',             value: "'Outfit', sans-serif",                  google: 'Outfit:wght@300;400;500;600' },
-  { label: 'Plus Jakarta Sans',  value: "'Plus Jakarta Sans', sans-serif",       google: 'Plus+Jakarta+Sans:wght@300;400;500;600;700' },
+const HEADING_FONTS = [
+  { label: 'Be Vietnam Pro',     value: "'Be Vietnam Pro', -apple-system, sans-serif",  google: 'Be+Vietnam+Pro:wght@300;400;500;600;700' },
+  { label: 'Plus Jakarta Sans',  value: "'Plus Jakarta Sans', sans-serif",              google: 'Plus+Jakarta+Sans:wght@300;400;500;600;700' },
+  { label: 'Outfit',             value: "'Outfit', sans-serif",                         google: 'Outfit:wght@300;400;500;600' },
+  { label: 'Cormorant Garamond', value: "'Cormorant Garamond', Georgia, serif",         google: 'Cormorant+Garamond:wght@300;400;500;600' },
+  { label: 'Lora',               value: "'Lora', Georgia, serif",                       google: 'Lora:wght@400;500;600' },
+  { label: 'Playfair Display',   value: "'Playfair Display', Georgia, serif",           google: 'Playfair+Display:wght@400;500;600' },
+  { label: 'DM Serif Display',   value: "'DM Serif Display', Georgia, serif",           google: 'DM+Serif+Display' },
 ];
 
 const MONO_FONTS = [
@@ -34,13 +35,13 @@ const MONO_FONTS = [
 
 // ── Accent presets ────────────────────────────────────────────────────────────
 
-const ACCENT_PRESETS: { id: AccentColor; hex: string; label: string }[] = [
-  { id: 'teal',   hex: '#2CC295', label: 'Teal'   },
-  { id: 'green',  hex: '#3A8C5A', label: 'Green'  },
-  { id: 'blue',   hex: '#3A7EC0', label: 'Blue'   },
-  { id: 'purple', hex: '#6B52C0', label: 'Purple' },
-  { id: 'rose',   hex: '#C04060', label: 'Rose'   },
-  { id: 'amber',  hex: '#C07C3A', label: 'Amber'  },
+const ACCENT_PRESETS: { hex: string; label: string }[] = [
+  { hex: '#2CC295', label: 'Teal'   },
+  { hex: '#5EC99B', label: 'Green'  },
+  { hex: '#6AAEDD', label: 'Blue'   },
+  { hex: '#9E82DC', label: 'Purple' },
+  { hex: '#DC7FA8', label: 'Rose'   },
+  { hex: '#D6A85C', label: 'Amber'  },
 ];
 
 // ── Color groups ──────────────────────────────────────────────────────────────
@@ -60,7 +61,7 @@ const COLOR_GROUPS = [
 
 // ── Loaded Google Fonts tracker ───────────────────────────────────────────────
 
-const _loaded = new Set(['Plus Jakarta Sans', 'Outfit', 'Cormorant Garamond', 'JetBrains Mono']);
+const _loaded = new Set(['Plus Jakarta Sans', 'Outfit', 'Be Vietnam Pro', 'Cormorant Garamond', 'JetBrains Mono']);
 
 function loadFont(family: string, googleParam: string | null) {
   if (!googleParam || _loaded.has(family)) return;
@@ -96,10 +97,12 @@ const TABS: { id: Tab; label: string }[] = [
 
 // ── Color swatch ──────────────────────────────────────────────────────────────
 
-function ColorSwatch({ varName }: { varName: string }) {
+function ColorSwatch({ varName, onEdit }: { varName: string; onEdit?: (cssVar: string, hex: string) => void }) {
   const [copied, setCopied] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const label = varName.replace('--', '');
+  const label = varName.replace('--color-', '').replace('--', '');
+  const currentVal = getCssVar(varName);
+  const isHex = /^#[0-9a-fA-F]{6}$/.test(currentVal);
 
   function handleCopy() {
     navigator.clipboard.writeText(varName).catch(() => {});
@@ -109,16 +112,32 @@ function ColorSwatch({ varName }: { varName: string }) {
   }
 
   return (
-    <button className="sg-swatch" onClick={handleCopy} title={`Copy ${varName}`} type="button">
-      <div className="sg-swatch-color" style={{ background: `var(${varName})` }} />
-      <div className="sg-swatch-info">
-        <span className="sg-swatch-name">{label}</span>
-        <span className="sg-swatch-value">{toHexIfPossible(getCssVar(varName))}</span>
-      </div>
-      <span className={`sg-swatch-copy${copied ? ' visible' : ''}`}>
-        {copied ? <Check size={11} strokeWidth={2.5} /> : <Copy size={11} strokeWidth={1.75} />}
-      </span>
-    </button>
+    <div className="sg-swatch">
+      {isHex && onEdit ? (
+        <label className="sg-swatch-color-wrap" title="Click to edit color">
+          <div className="sg-swatch-color" style={{ background: `var(${varName})` }}>
+            <span className="sg-swatch-edit-icon">✎</span>
+          </div>
+          <input
+            type="color"
+            className="sg-swatch-color-input"
+            value={currentVal}
+            onChange={e => onEdit(varName, e.target.value)}
+          />
+        </label>
+      ) : (
+        <div className="sg-swatch-color" style={{ background: `var(${varName})` }} />
+      )}
+      <button className="sg-swatch-body" onClick={handleCopy} title={`Copy ${varName}`} type="button">
+        <div className="sg-swatch-info">
+          <span className="sg-swatch-name">{label}</span>
+          <span className="sg-swatch-value">{toHexIfPossible(currentVal)}</span>
+        </div>
+        <span className={`sg-swatch-copy${copied ? ' visible' : ''}`}>
+          {copied ? <Check size={11} strokeWidth={2.5} /> : <Copy size={11} strokeWidth={1.75} />}
+        </span>
+      </button>
+    </div>
   );
 }
 
@@ -126,7 +145,7 @@ function ColorSwatch({ varName }: { varName: string }) {
 
 function TypographyTab({ overrides, setOverride }: { overrides: Record<string, string>; setOverride: (k: string, v: string) => void }) {
   const bodyVal    = overrides['--font-body']    ?? BODY_FONTS[0].value;
-  const displayVal = overrides['--font-display'] ?? DISPLAY_FONTS[0].value;
+  const headingVal = overrides['--font-display'] ?? HEADING_FONTS[0].value;
   const monoVal    = overrides['--font-mono']    ?? MONO_FONTS[0].value;
 
   function pickFont(cssVar: string, value: string, label: string, google: string | null) {
@@ -138,6 +157,24 @@ function TypographyTab({ overrides, setOverride }: { overrides: Record<string, s
     <div className="sg-section">
       <div className="sg-font-controls">
         <div className="sg-control">
+          <label className="sg-label">Brand Font</label>
+          <div className="sg-brand-font-display">
+            <span className="sg-brand-font-name">Cormorant Garamond</span>
+            <span className="sg-brand-font-note">Fixed — app name only</span>
+          </div>
+        </div>
+        <div className="sg-control">
+          <label className="sg-label">Heading Font</label>
+          <select className="input sg-select" value={headingVal}
+            onChange={e => {
+              const opt = HEADING_FONTS.find(f => f.value === e.target.value);
+              if (opt) pickFont('--font-display', opt.value, opt.label, opt.google);
+            }}
+          >
+            {HEADING_FONTS.map(f => <option key={f.label} value={f.value}>{f.label}</option>)}
+          </select>
+        </div>
+        <div className="sg-control">
           <label className="sg-label">Body Font</label>
           <select className="input sg-select" value={bodyVal}
             onChange={e => {
@@ -146,17 +183,6 @@ function TypographyTab({ overrides, setOverride }: { overrides: Record<string, s
             }}
           >
             {BODY_FONTS.map(f => <option key={f.label} value={f.value}>{f.label}</option>)}
-          </select>
-        </div>
-        <div className="sg-control">
-          <label className="sg-label">Display Font</label>
-          <select className="input sg-select" value={displayVal}
-            onChange={e => {
-              const opt = DISPLAY_FONTS.find(f => f.value === e.target.value);
-              if (opt) pickFont('--font-display', opt.value, opt.label, opt.google);
-            }}
-          >
-            {DISPLAY_FONTS.map(f => <option key={f.label} value={f.value}>{f.label}</option>)}
           </select>
         </div>
         <div className="sg-control">
@@ -173,7 +199,8 @@ function TypographyTab({ overrides, setOverride }: { overrides: Record<string, s
       </div>
 
       <div className="card sg-type-samples">
-        <p className="sg-sample-display">Display Heading — The quick brown fox</p>
+        <p className="sg-sample-brand">Shufora — Brand / App Name</p>
+        <p className="sg-sample-display">Heading — The quick brown fox</p>
         <h2 className="sg-sample-h2">Section Heading</h2>
         <h3 className="sg-sample-h3">Card / Subsection Heading</h3>
         <p className="sg-sample-body">Body text — The quick brown fox jumps over the lazy dog. This is what your main reading content looks like at default size with normal weight. Paragraphs, descriptions, and most UI copy use this style.</p>
@@ -185,14 +212,15 @@ function TypographyTab({ overrides, setOverride }: { overrides: Record<string, s
       <div className="sg-group-title">Type Scale</div>
       <div className="sg-type-scale card">
         {[
-          { size: '2rem',    weight: 500, label: '2rem  ·  500',  tag: 'Display',    font: 'display' },
-          { size: '1.5rem',  weight: 500, label: '1.5rem ·  500', tag: 'Heading 2',  font: 'display' },
-          { size: '1.25rem', weight: 600, label: '1.25rem · 600', tag: 'Heading 3',  font: 'body' },
-          { size: '1rem',    weight: 600, label: '1rem  ·  600',  tag: 'Heading 4',  font: 'body' },
-          { size: '0.875rem',weight: 400, label: '0.875rem · 400',tag: 'Body',       font: 'body' },
-          { size: '0.8rem',  weight: 400, label: '0.8rem · 400',  tag: 'Small',      font: 'body' },
-          { size: '0.72rem', weight: 400, label: '0.72rem · 400', tag: 'Caption',    font: 'body' },
-          { size: '0.75rem', weight: 400, label: '0.75rem · 400', tag: 'Mono',       font: 'mono' },
+          { size: '2rem',    weight: 400, label: '2rem  ·  400',  tag: 'Brand / App Name', font: 'brand' },
+          { size: '2rem',    weight: 500, label: '2rem  ·  500',  tag: 'Heading 1',        font: 'display' },
+          { size: '1.5rem',  weight: 500, label: '1.5rem ·  500', tag: 'Heading 2',        font: 'display' },
+          { size: '1.25rem', weight: 600, label: '1.25rem · 600', tag: 'Heading 3',        font: 'body' },
+          { size: '1rem',    weight: 600, label: '1rem  ·  600',  tag: 'Heading 4',        font: 'body' },
+          { size: '0.875rem',weight: 400, label: '0.875rem · 400',tag: 'Body',             font: 'body' },
+          { size: '0.8rem',  weight: 400, label: '0.8rem · 400',  tag: 'Small',            font: 'body' },
+          { size: '0.72rem', weight: 400, label: '0.72rem · 400', tag: 'Caption',          font: 'body' },
+          { size: '0.75rem', weight: 400, label: '0.75rem · 400', tag: 'Mono',             font: 'mono' },
         ].map(({ size, weight, label, tag, font }) => (
           <div key={size + font} className="sg-scale-row">
             <code className="sg-scale-label">{label}</code>
@@ -215,11 +243,10 @@ function TypographyTab({ overrides, setOverride }: { overrides: Record<string, s
 
 // ── Colors tab ────────────────────────────────────────────────────────────────
 
-function ColorsTab({ overrides, setOverride, accentColor, setAccentColor, setCustomAccentHex }: {
+function ColorsTab({ overrides, setOverride, customAccentHex, setCustomAccentHex }: {
   overrides: Record<string, string>;
   setOverride: (k: string, v: string) => void;
-  accentColor: AccentColor;
-  setAccentColor: (a: AccentColor) => void;
+  customAccentHex: string | undefined;
   setCustomAccentHex: (hex: string) => void;
 }) {
   const [neuDark, setNeuDark] = useState(() => {
@@ -234,7 +261,7 @@ function ColorsTab({ overrides, setOverride, accentColor, setAccentColor, setCus
     const c = getCssVar('--neu-light');
     return c.startsWith('#') ? c : '#353638';
   });
-  const [customHex, setCustomHex] = useState(getCssVar('--color-primary'));
+  const [customHex, setCustomHex] = useState(customAccentHex ?? getCssVar('--color-primary'));
 
   return (
     <div className="sg-section">
@@ -243,10 +270,10 @@ function ColorsTab({ overrides, setOverride, accentColor, setAccentColor, setCus
         <div className="sg-accent-row">
           {ACCENT_PRESETS.map(a => (
             <button
-              key={a.id}
-              className={`sg-accent-chip${accentColor === a.id && !overrides['--color-primary'] ? ' active' : ''}`}
+              key={a.hex}
+              className={`sg-accent-chip${customHex.toLowerCase() === a.hex.toLowerCase() ? ' active' : ''}`}
               style={{ '--chip': a.hex } as React.CSSProperties}
-              onClick={() => { setAccentColor(a.id); setCustomHex(a.hex); }}
+              onClick={() => { setCustomAccentHex(a.hex); setCustomHex(a.hex); }}
               title={a.label}
               type="button"
             >
@@ -307,7 +334,7 @@ function ColorsTab({ overrides, setOverride, accentColor, setAccentColor, setCus
         <div key={group.label} className="sg-group">
           <div className="sg-group-title">{group.label}</div>
           <div className="sg-swatch-grid">
-            {group.vars.map(v => <ColorSwatch key={v} varName={v} />)}
+            {group.vars.map(v => <ColorSwatch key={v} varName={v} onEdit={setOverride} />)}
           </div>
         </div>
       ))}
@@ -565,7 +592,7 @@ function SpacingTab({ overrides, setOverride }: { overrides: Record<string, stri
 function StyleGuide() {
   const [tab, setTab] = useState<Tab>('typography');
   const { overrides, setOverride, resetAll } = useStyle();
-  const { accentColor, setAccentColor, setCustomAccentHex } = useAppearance();
+  const { customAccentHex, setCustomAccentHex } = useAppearance();
 
   return (
     <div className="page sg-page">
@@ -597,8 +624,7 @@ function StyleGuide() {
         <ColorsTab
           overrides={overrides}
           setOverride={setOverride}
-          accentColor={accentColor}
-          setAccentColor={setAccentColor}
+          customAccentHex={customAccentHex}
           setCustomAccentHex={setCustomAccentHex}
         />
       )}

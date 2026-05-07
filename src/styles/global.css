@@ -1,21 +1,21 @@
 /* ── Design tokens ───────────────────────────────────────────────────────── */
 
 :root {
-  /* Neumorphic base — warm dark charcoal (matches reference image) */
-  --color-bg:            #282829;
-  --color-bg-raised:     #2e2f31;
-  --color-surface:       #333435;
-  --color-surface-hover: #383a3c;
-  --color-border:        #3e4042;
-  --color-border-light:  #484a4d;
+  /* Neumorphic base */
+  --color-bg:            #111317;
+  --color-bg-raised:     #171a1e;
+  --color-surface:       #1d2024;
+  --color-surface-hover: #222529;
+  --color-border:        #2a2d32;
+  --color-border-light:  #353840;
 
   --color-text:           #e5e5e6;
   --color-text-secondary: #8a8b8e;
   --color-text-muted:     #5a5b5e;
 
-  /* Neumorphic shadow anchors — derived from warm charcoal bg */
-  --neu-dark:  #1d1e1f;
-  --neu-light: #353638;
+  /* Neumorphic shadow anchors — derived from bg */
+  --neu-dark:  #090b0e;
+  --neu-light: #191c21;
 
   /* Shadow scale */
   --shadow-neu:          8px 8px 18px var(--neu-dark), -8px -8px 18px var(--neu-light);
@@ -42,28 +42,10 @@
   --shadow:    var(--shadow-neu-sm);
   --shadow-lg: var(--shadow-neu);
 
-  --font-display: 'Cormorant Garamond', Georgia, serif;
+  --font-brand:   'Cormorant Garamond', Georgia, serif;
+  --font-display: 'Be Vietnam Pro', -apple-system, sans-serif;
   --font-body:    'Plus Jakarta Sans', -apple-system, sans-serif;
   --font-mono:    'JetBrains Mono', 'Fira Code', monospace;
-}
-
-/* ── Light neumorphic theme ──────────────────────────────────────────────── */
-[data-theme="light"] {
-  --color-bg:            #e2e6f0;
-  --color-bg-raised:     #e8ecf6;
-  --color-surface:       #e8ecf6;
-  --color-surface-hover: #dde2ee;
-  --color-border:        #c8d0e0;
-  --color-border-light:  #b8c4d8;
-
-  --color-text:           #1a2040;
-  --color-text-secondary: #4a5880;
-  --color-text-muted:     #8090b8;
-
-  --neu-dark:  rgba(158, 172, 204, 0.72);
-  --neu-light: rgba(255, 255, 255, 0.92);
-
-  --shadow-lg: 10px 10px 28px var(--neu-dark), -6px -6px 18px var(--neu-light);
 }
 
 /* ── Base reset ──────────────────────────────────────────────────────────── */
@@ -96,8 +78,6 @@ body::before {
   pointer-events: none;
   z-index: 0;
 }
-
-[data-theme="light"] body::before { background: none; }
 
 #root {
   position: relative;

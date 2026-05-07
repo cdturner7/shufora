@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Library, Terminal, Palette, ChevronLeft, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, Library, Palette, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAppearance } from '../context/AppearanceContext';
 import { useDevAccess } from '../context/DevAccessContext';
 import './Sidebar.css';
@@ -25,7 +25,6 @@ function Sidebar() {
     { to: '/library', label: 'Library',   icon: Library },
     ...(devMode ? [
       { to: '/admin/style-guide', label: 'Style Guide', icon: Palette },
-      { to: '/dev/logs',          label: 'Dev Logs',    icon: Terminal },
     ] : []),
   ];
 

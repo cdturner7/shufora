@@ -31,6 +31,23 @@ export interface SpotifyPlaylist {
   uri: string;
 }
 
+export interface SpotifyAlbum {
+  id: string;
+  name: string;
+  artists: { name: string }[];
+  images: { url: string }[];
+  total_tracks: number;
+  uri: string;
+}
+
+export interface SpotifyArtist {
+  id: string;
+  name: string;
+  images: { url: string }[];
+  genres: string[];
+  followers: { total: number };
+}
+
 // ── PKCE helpers ─────────────────────────────────────────────────────────────
 
 function randomBytes(length: number): Uint8Array {
@@ -64,6 +81,8 @@ const SCOPES = [
   'user-read-playback-state',
   'user-modify-playback-state',
   'user-read-currently-playing',
+  'user-read-recently-played',
+  'user-follow-read',
 ].join(' ');
 
 export function getSpotifyRedirectUri(): string {
@@ -211,6 +230,30 @@ export async function searchSpotify(query: string, token: string): Promise<Spoti
   const params = new URLSearchParams({ q: query, type: 'track', limit: '20' });
   const data = await spotifyFetch<{ tracks: { items: SpotifyTrack[] } }>(`/search?${params}`, token);
   return data.tracks.items;
+}
+
+export async function getRecentlyPlayed(token: string): Promise<SpotifyTrack[]> {
+  const data = await spotifyFetch<{ items: { track: SpotifyTrack }[] }>('/me/player/recently-played?limit=20', token);
+  return data.items.map(i => i.track);
+}
+
+export async function getSavedAlbums(token: string): Promise<SpotifyAlbum[]> {
+  const data = await spotifyFetch<{ items: { album: SpotifyAlbum }[] }>('/me/albums?limit=20', token);
+  return data.items.map(i => i.album);
+}
+
+export async function getFollowedArtists(token: string): Promise<SpotifyArtist[]> {
+  const data = await spotifyFetch<{ artists: { items: SpotifyArtist[] } }>('/me/following?type=artist&limit=20', token);
+  return data.artists.items;
+}
+
+export async function getAlbumTracks(albumId: string, album: SpotifyAlbum, token: string): Promise<SpotifyTrack[]> {
+  const data = await spotifyFetch<{ items: Array<{ id: string; uri: string; name: string; duration_ms: number; artists: { name: string }[] }> }>(
+    `/albums/${albumId}/tracks?limit=50`,
+    token,
+  );
+  const albumRef = { name: album.name, images: album.images };
+  return data.items.map(t => ({ ...t, album: albumRef }));
 }
 
 export async function playOnDevice(token: string, deviceId: string, uris: string[], offsetIndex = 0): Promise<void> {

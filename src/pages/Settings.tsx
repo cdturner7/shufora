@@ -1,103 +1,6 @@
-import { useState, useCallback, useRef } from 'react';
 import { useSpotify } from '../context/SpotifyContext';
 import { useSoundCloud } from '../context/SoundCloudContext';
-import { useAppearance } from '../context/AppearanceContext';
 import './Settings.css';
-
-function isValidHex(hex: string) {
-  return /^#[0-9A-Fa-f]{6}$/.test(hex);
-}
-
-function HexColorPicker({
-  label, value, onChange, placeholder,
-}: {
-  label: string;
-  value: string;
-  onChange: (hex: string) => void;
-  placeholder: string;
-}) {
-  const [inputVal, setInputVal] = useState(value);
-
-  // Keep local input in sync if external value changes (e.g. Firestore sync)
-  const prevValue = useRef(value);
-  if (prevValue.current !== value) {
-    prevValue.current = value;
-    setInputVal(value);
-  }
-
-  const commit = useCallback((hex: string) => {
-    if (isValidHex(hex)) onChange(hex);
-  }, [onChange]);
-
-  function handleTextChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const val = e.target.value;
-    setInputVal(val);
-    const normalized = val.startsWith('#') ? val : `#${val}`;
-    if (isValidHex(normalized)) commit(normalized);
-  }
-
-  function handleColorPicker(e: React.ChangeEvent<HTMLInputElement>) {
-    const hex = e.target.value;
-    setInputVal(hex);
-    commit(hex);
-  }
-
-  const displayHex = isValidHex(inputVal) ? inputVal : value;
-
-  return (
-    <div className="accent-theme-picker">
-      <span className="accent-theme-label">{label}</span>
-      <div className="accent-picker-row">
-        <label className="accent-swatch-label" title="Open color picker">
-          <input
-            type="color"
-            className="accent-color-native"
-            value={displayHex}
-            onChange={handleColorPicker}
-          />
-          <span className="accent-swatch" style={{ background: displayHex }} />
-        </label>
-        <input
-          type="text"
-          className="input accent-hex-input"
-          value={inputVal}
-          onChange={handleTextChange}
-          onBlur={() => { if (!isValidHex(inputVal)) setInputVal(value); }}
-          spellCheck={false}
-          maxLength={7}
-          placeholder={placeholder}
-        />
-      </div>
-    </div>
-  );
-}
-
-function AccentColorPicker() {
-  const { customAccentHex, darkAccentHex, setCustomAccentHex, setDarkAccentHex } = useAppearance();
-  const lightHex = customAccentHex ?? '#2CC295';
-  const darkHex  = darkAccentHex  ?? lightHex;
-
-  return (
-    <div className="accent-picker-section">
-      <p className="settings-section-label">Accent Color</p>
-      <p className="settings-section-desc">Set separate accent colors for light and dark themes.</p>
-      <div className="accent-themes-row">
-        <HexColorPicker
-          label="Light"
-          value={lightHex}
-          onChange={setCustomAccentHex}
-          placeholder="#2CC295"
-        />
-        <HexColorPicker
-          label="Dark"
-          value={darkHex}
-          onChange={setDarkAccentHex}
-          placeholder={lightHex}
-        />
-      </div>
-    </div>
-  );
-}
 
 function Settings() {
   const spotify = useSpotify();
@@ -105,10 +8,6 @@ function Settings() {
 
   return (
     <div className="page">
-      <div className="card">
-        <AccentColorPicker />
-      </div>
-
       <div className="card">
         <p className="settings-section-label">Music Accounts</p>
         <p className="settings-section-desc">Link your streaming accounts to sync your library and play music.</p>

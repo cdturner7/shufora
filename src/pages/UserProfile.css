@@ -148,15 +148,11 @@
   color: var(--color-success);
 }
 
-/* Linked accounts grid */
+/* Linked accounts — always stacked */
 .profile-accounts {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 0.85rem;
-}
-
-@media (max-width: 480px) {
-  .profile-accounts { grid-template-columns: 1fr; }
 }
 
 .profile-account {
@@ -175,16 +171,16 @@
 }
 
 .profile-account-logo {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
 
-.profile-account-logo svg { width: 18px; height: 18px; }
+.profile-account-logo svg { width: 24px; height: 24px; }
 
 .profile-account-logo--spotify    { background: #1DB954; }
 .profile-account-logo--soundcloud { background: #FF5500; }
@@ -214,14 +210,8 @@
 
 .profile-account-sub--dim { color: var(--color-text-muted); }
 
-/* Mobile: stack identity card */
+/* Mobile: tighten identity card */
 @media (max-width: 540px) {
-  .profile-identity {
-    flex-direction: column;
-    text-align: center;
-  }
-
-  .profile-name-row  { justify-content: center; }
-  .profile-email     { text-align: center; }
-  .profile-name-edit { justify-content: center; }
+  .profile-avatar { width: 58px; height: 58px; font-size: 1.5rem; }
+  .profile-name   { font-size: 1.2rem; }
 }

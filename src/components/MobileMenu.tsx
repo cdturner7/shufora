@@ -1,8 +1,7 @@
 import { useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Library, Settings, User, Terminal } from 'lucide-react';
+import { LayoutDashboard, Library, Settings, User } from 'lucide-react';
 import { useAppearance } from '../context/AppearanceContext';
-import { useDevAccess } from '../context/DevAccessContext';
 import './Sidebar.css';
 import './MobileMenu.css';
 
@@ -13,7 +12,6 @@ interface MobileMenuProps {
 
 function MobileMenu({ open, onClose }: MobileMenuProps) {
   const { naming } = useAppearance();
-  const { devMode } = useDevAccess();
   const location = useLocation();
 
   useEffect(() => { onClose(); }, [location.pathname]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -28,9 +26,6 @@ function MobileMenu({ open, onClose }: MobileMenuProps) {
     { to: '/library',  label: 'Library',   icon: Library },
     { to: '/settings', label: 'Settings',  icon: Settings },
     { to: '/profile',  label: 'Profile',   icon: User },
-    ...(devMode ? [
-      { to: '/dev/logs', label: 'Dev Logs', icon: Terminal },
-    ] : []),
   ];
 
   return (
@@ -51,7 +46,7 @@ function MobileMenu({ open, onClose }: MobileMenuProps) {
               to={to}
               end={end}
               className={({ isActive }) =>
-                `sidebar-link${isActive ? ' active' : ''}${to.startsWith('/dev') ? ' sidebar-link--dev' : ''}`
+                `sidebar-link${isActive ? ' active' : ''}`
               }
             >
               <Icon className="sidebar-icon" size={17} strokeWidth={1.75} />

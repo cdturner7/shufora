@@ -34,7 +34,7 @@ function Search() {
       <div className="search-bar-wrap">
         <SearchIcon className="search-bar-icon" size={18} strokeWidth={1.75} />
         <input
-          className="input search-bar-input"
+          className="search-bar-input"
           type="search"
           placeholder="Artists, songs, albums…"
           value={query}

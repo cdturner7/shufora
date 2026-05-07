@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Bell, Settings as SettingsIcon, Sun, Moon } from 'lucide-react';
+import { Bell, Settings as SettingsIcon } from 'lucide-react';
 import { useIsMobile } from '../hooks/useMediaQuery';
 import { useAuth } from '../context/AuthContext';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
@@ -12,30 +12,6 @@ import UserMenu from './UserMenu';
 import PlayerBar from './PlayerBar';
 import QueueSidebar from './QueueSidebar';
 import './Layout.css';
-
-function ThemeToggle({ className = 'topbar-icon-btn' }: { className?: string }) {
-  const { theme, setTheme } = useAppearance();
-  const [spinning, setSpinning] = useState(false);
-
-  const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-
-  function toggle() {
-    setSpinning(true);
-    setTheme(isDark ? 'light' : 'dark');
-    setTimeout(() => setSpinning(false), 400);
-  }
-
-  return (
-    <button
-      className={`${className} theme-toggle${spinning ? ' theme-toggle--spinning' : ''}`}
-      onClick={toggle}
-      title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-      type="button"
-    >
-      {isDark ? <Sun size={17} strokeWidth={1.75} /> : <Moon size={17} strokeWidth={1.75} />}
-    </button>
-  );
-}
 
 function TopbarUserChip() {
   const navigate = useNavigate();
@@ -162,7 +138,6 @@ function Layout() {
         <header className="app-header">
           <span className="app-header-title">{naming.appName}</span>
           <div style={{ flex: 1 }} />
-          <ThemeToggle className="app-header-menu-btn" />
           <UserMenu user={user} compact />
         </header>
         {banners}
@@ -185,7 +160,6 @@ function Layout() {
             <button className="topbar-icon-btn" title="Notifications">
               <Bell size={17} strokeWidth={1.75} />
             </button>
-            <ThemeToggle />
             <div className="topbar-divider" />
             <TopbarUserChip />
           </div>
