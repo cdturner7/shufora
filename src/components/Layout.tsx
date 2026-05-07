@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Bell, Settings as SettingsIcon } from 'lucide-react';
+import { Settings as SettingsIcon } from 'lucide-react';
 import { useIsMobile } from '../hooks/useMediaQuery';
 import { useAuth } from '../context/AuthContext';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
@@ -31,14 +31,15 @@ function TopbarUserChip() {
 
   if (!user) return null;
 
-  const u = user;
-  const displayName = u.displayName || u.email?.split('@')[0] || 'Account';
+  // TypeScript can't narrow `user` inside nested closures, so capture here
+  const { displayName: rawName, email, photoURL } = user;
+  const displayName = rawName || email?.split('@')[0] || 'Account';
 
   function getInitials() {
-    if (u.displayName) {
-      return u.displayName.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase();
+    if (rawName) {
+      return rawName.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase();
     }
-    return (u.email?.[0] ?? '?').toUpperCase();
+    return (email?.[0] ?? '?').toUpperCase();
   }
 
   async function handleLogOut() {
@@ -54,8 +55,8 @@ function TopbarUserChip() {
         onClick={() => setOpen((v) => !v)}
         title="Account"
       >
-        {u.photoURL ? (
-          <img className="topbar-avatar" src={u.photoURL} alt={displayName} referrerPolicy="no-referrer" />
+        {photoURL ? (
+          <img className="topbar-avatar" src={photoURL} alt={displayName} referrerPolicy="no-referrer" />
         ) : (
           <div className="topbar-avatar topbar-avatar--initials">{getInitials()}</div>
         )}
@@ -71,7 +72,7 @@ function TopbarUserChip() {
         <div className="topbar-user-dropdown">
           <div className="topbar-user-dropdown-header">
             <span className="topbar-user-dropdown-name">{displayName}</span>
-            {u.email && <span className="topbar-user-dropdown-email">{u.email}</span>}
+            {email && <span className="topbar-user-dropdown-email">{email}</span>}
           </div>
           <div className="topbar-user-dropdown-divider" />
           <button
@@ -157,10 +158,6 @@ function Layout() {
         <header className="app-topbar">
           <div className="topbar-left" />
           <div className="topbar-right">
-            <button className="topbar-icon-btn" title="Notifications">
-              <Bell size={17} strokeWidth={1.75} />
-            </button>
-            <div className="topbar-divider" />
             <TopbarUserChip />
           </div>
         </header>

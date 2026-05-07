@@ -3,7 +3,6 @@ import { Routes, Route } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { AppearanceProvider } from './context/AppearanceContext';
 import { DevAccessProvider } from './context/DevAccessContext';
-import { ToastProvider } from './context/ToastContext';
 import { SpotifyProvider } from './context/SpotifyContext';
 import { SoundCloudProvider } from './context/SoundCloudContext';
 import { PlayerProvider } from './context/PlayerContext';
@@ -49,14 +48,13 @@ function App() {
     <AuthProvider>
       <LoggerSync />
       <DevAccessProvider>
-        <StyleProvider>
-        <AppearanceProvider>
-          <ToastProvider>
-            <SpotifyProvider>
-              <SoundCloudProvider>
-                <PlayerProvider>
-                  <OrasProvider>
-                  <Routes>
+          <StyleProvider>
+            <AppearanceProvider>
+              <SpotifyProvider>
+                <SoundCloudProvider>
+                  <PlayerProvider>
+                    <OrasProvider>
+                      <Routes>
                     <Route path="/login" element={<Login />} />
 
                     <Route element={<ProtectedRoute />}>
@@ -79,14 +77,13 @@ function App() {
                         </Route>
                       </Route>
                     </Route>
-                  </Routes>
-                  </OrasProvider>
-                </PlayerProvider>
-              </SoundCloudProvider>
-            </SpotifyProvider>
-          </ToastProvider>
-        </AppearanceProvider>
-        </StyleProvider>
+                      </Routes>
+                    </OrasProvider>
+                  </PlayerProvider>
+                </SoundCloudProvider>
+              </SpotifyProvider>
+            </AppearanceProvider>
+          </StyleProvider>
       </DevAccessProvider>
     </AuthProvider>
   );
